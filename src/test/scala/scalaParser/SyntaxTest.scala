@@ -52,18 +52,23 @@ object SyntaxTest extends TestSuite {
     'sources {
       scalaPaths foreach { f =>
         val input = f.slurp()
-        val path_s = f.toString stripPrefix (scalaSources + "/") match {
+        val fs = f.toString
+        val segments = (fs splitChar '/').toSet
+        val path_s = fs stripPrefix (scalaSources + "/") match {
           case s if s.length <= maxFileLen => s
           case s                           => "..." + s.substring(s.length - (maxFileLen - 3), s.length)
         }
-        val skip  = (f.toString contains "/neg/") || (skipPaths exists f.toString.endsWith)
-        val fmt = s"[%6s] $maxFileFmt  "
+        val isNeg = segments("neg")
+        val skip  = (skipPaths exists fs.endsWith) || segments("disabled") || segments("pending") || segments("script")
+        val fmt   = s"[%6s] $maxFileFmt  "
         print((s"[%6s] $maxFileFmt  ").format(input.length, path_s))
         println(
           if (skip) "skip".yellow.to_s
           else Try(check(input)) match {
-            case Success(_) => "ok".green.to_s
-            case Failure(t) => failures += f ; "%s\n%s\n".format("failed".red.to_s, t.getMessage)
+            case Success(_) if isNeg => failures += f ; "failed".red.to_s + " (expected failure)"
+            case Success(_)          => "ok".green.to_s
+            case Failure(_) if isNeg => "ok".green.to_s
+            case Failure(t)          => failures += f ; "failed".red.to_s + "\n" + t.getMessage
           }
         )
       }
