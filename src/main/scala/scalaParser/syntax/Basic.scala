@@ -12,13 +12,14 @@ trait Basic {
   }
 
   object Basic {
-    def Digit          = CharPredicate.Digit
+    def AlphaNum       = rule( Letter | Digit )
     def DecimalNumeral = rule( oneOrMore(Digit) )
     def DelimiterChar  = rule( anyOf("'\".;,") )
+    def Digit          = CharPredicate.Digit
     def ExponentPart   = rule( anyOf("Ee") ~ optional(anyOf("+-")) ~ oneOrMore(Digit) )
     def FloatType      = rule( anyOf("FfDd") )
     def HexNumeral     = rule( "0x" ~ oneOrMore(HexDigit) )
-    def Letter         = rule( Upper | Lower | IsAlpha | Digit )
+    def Letter         = rule( Upper | Lower | IsAlpha )
     def Lower          = rule( "a" - "z" | "$" | "_" | IsLower )
     def Newline        = rule( "\r\n" | "\n" )
     def OperatorChar   = rule( anyOf("\\!#$%&*+-/:<=>?@^|~") | isOperator )
@@ -43,7 +44,7 @@ trait Basic {
    */
   object Key {
     def W(s: String) = rule {
-      str(s) ~ !Basic.Letter
+      str(s) ~ !Basic.AlphaNum
     }
 
     def O(s: String) = rule {

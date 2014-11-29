@@ -18,6 +18,7 @@ trait Literals { self: Parser with Basic with Identifiers =>
     }
 
     def IntegerLiteral = rule { (HexNumeral | DecimalNumeral) ~ optional(anyOf("Ll")) }
+    def NumericLiteral = rule( FloatingPointLiteral | IntegerLiteral )
 
     def BooleanLiteral = rule { Key.W("true") | Key.W("false")  }
 
@@ -27,14 +28,14 @@ trait Literals { self: Parser with Basic with Identifiers =>
       "//" ~ zeroOrMore(!Basic.Newline ~ ANY) ~ &(Basic.Newline | EOI)
     }
 
-    def Literal = rule {
-      (optional("-") ~ (FloatingPointLiteral | IntegerLiteral)) |
-      BooleanLiteral |
-      CharacterLiteral |
-      StringLiteral |
-      SymbolLiteral |
-      (Key.W("null") ~ !(Basic.Letter | Basic.Digit))
-    }
+    def Literal = rule(
+        optional("-") ~ NumericLiteral
+      | BooleanLiteral
+      | CharacterLiteral
+      | StringLiteral
+      | SymbolLiteral
+      | Key.W("null") ~ !Basic.AlphaNum
+    )
 
     def EscapedChars = rule { '\\' ~ anyOf("btnfr'\\\"") }
 
@@ -50,7 +51,7 @@ trait Literals { self: Parser with Basic with Identifiers =>
     }
     def pr(s: String) = rule { run(println(s"LOGGING $cursor: $s")) }
     def Interpolation = rule{
-      "$" ~ Identifiers.PlainIdNoDollar | "${" ~ Block ~ WL ~ "}" | "$$"
+      "$" ~ Identifiers.RawPlainId | "${" ~ Block ~ WL ~ "}" | "$$"
     }
     def StringLiteral = rule {
       (Identifiers.Id ~ "\"\"\"" ~ MultiLineChars ~ ("\"\"\"" ~ zeroOrMore('"'))) |
