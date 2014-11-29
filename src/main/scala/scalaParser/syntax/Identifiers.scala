@@ -1,6 +1,5 @@
 package scalaParser
 package syntax
-import acyclic.file
 import org.parboiled2._
 
 trait Identifiers { self: Parser with Basic =>
