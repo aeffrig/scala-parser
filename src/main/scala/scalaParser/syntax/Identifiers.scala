@@ -2,6 +2,7 @@ package scalaParser
 package syntax
 
 import org.parboiled2._
+import psp.std._, api._
 
 trait Identifiers {
   self: Parser with Basic =>
@@ -17,11 +18,12 @@ trait Identifiers {
     def RawVarId       = rule( !Keywords ~ Lower ~ RawIdRest )
     def EncodedPlainId = rule( !Keywords ~ Upper ~ EncodedIdRest | EncodedVarId | Operator )
     def RawPlainId     = rule( !Keywords ~ Upper ~ RawIdRest | RawVarId | Operator )
-    def Id             = rule( !Keywords ~ EncodedPlainId | ("`" ~ oneOrMore(noneOf("`")) ~ "`") )
+    def Id             = rule( !Keywords ~ EncodedPlainId | BacktickedId )
+    def BacktickedId   = rule( "`" ~ oneOrMore(noneOf("`")) ~ "`" )
 
-    private def EncodedIdRest  = rule( zeroOrMore(zeroOrMore("_") ~ oneOrMore(!"_" ~ AlphaNum)) ~ optional(UnderscorePart) )
-    private def RawIdRest      = rule( zeroOrMore(zeroOrMore("_") ~ oneOrMore(!anyOf("_$") ~ AlphaNum)) ~ optional(UnderscorePart) )
-    private def UnderscorePart = rule( oneOrMore("_") ~ zeroOrMore(OperatorChar) )
+    private def EncodedIdRest  = rule( zeroOrMore(zeroOrMore("_") ~ oneOrMore(!"_" ~ AlphaNum)) ~ UnderscorePart )
+    private def RawIdRest      = rule( zeroOrMore(zeroOrMore("_") ~ oneOrMore(!anyOf("_$") ~ AlphaNum)) ~ UnderscorePart )
+    private def UnderscorePart = rule( optional(oneOrMore("_") ~ zeroOrMore(OperatorChar)) )
 
     def AlphabetKeywords = rule {
       (

@@ -1,11 +1,15 @@
 package scalaParser
 package syntax
+
 import org.parboiled2._
 
-trait Literals { self: Parser with Basic with Identifiers =>
+trait Literals {
+  self: Parser with Basic with Identifiers =>
+
   def Block: Rule0
   def WL: Rule0
-  object Literals{
+
+  object Literals {
     import Basic._
     def FloatingPointLiteral = rule {
 
@@ -66,4 +70,3 @@ trait Literals { self: Parser with Basic with Identifiers =>
     }
   }
 }
-

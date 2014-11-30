@@ -1,10 +1,13 @@
 package scalaParser
 package syntax
+
 import org.parboiled2._
 import CharPredicate.{ HexDigit, AlphaNum, Digit, Digit19 }
 
 trait Basic {
   self: Parser =>
+
+  type R0 = Rule0
 
   implicit class RuleOps[I <: HList, O <: I](r: Rule[I, O]) {
     def * = rule( zeroOrMore(r) )
@@ -36,6 +39,7 @@ trait Basic {
 
     private val OperatorTypes = Set[Int](Character.OTHER_SYMBOL, Character.MATH_SYMBOL)
   }
+
   /**
    * Most keywords don't just require the correct characters to match,
    * they have to ensure that subsequent characters *don't* match in
