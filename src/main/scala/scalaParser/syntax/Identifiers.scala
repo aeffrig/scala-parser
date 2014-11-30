@@ -19,6 +19,7 @@ trait Identifiers {
     def EncodedPlainId = rule( !Keywords ~ Upper ~ EncodedIdRest | EncodedVarId | Operator )
     def RawPlainId     = rule( !Keywords ~ Upper ~ RawIdRest | RawVarId | Operator )
     def Id             = rule( !Keywords ~ EncodedPlainId | BacktickedId )
+    def IdOrKeyword    = rule( PlainId | Keywords )
     def BacktickedId   = rule( "`" ~ oneOrMore(noneOf("`")) ~ "`" )
 
     private def EncodedIdRest  = rule( zeroOrMore(zeroOrMore("_") ~ oneOrMore(!"_" ~ AlphaNum)) ~ UnderscorePart )
