@@ -330,7 +330,6 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def ExprNotSensitive    = NotSensitive.Expr
   def ExprSensitive       = IsSensitive.Expr
   def Exprs: R0           = rule( oneOrMore(Expr) separatedBy ',' )
-  def FlatPackageStat     = rule( `package` ~ QualId ~ !(WS ~ "{") )
   def FunSig              = rule( Id ~ optional(FunTypeParamClause) ~ ParamClauses )
   def FunTypeParamClause  = rule( '[' ~ AnnotatedTypeParams ~ ']' )
   def HighBound           = rule( SubType ~ Type )
@@ -347,8 +346,6 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def ParenExpr           = rule( '(' ~ ExprNotSensitive ~ ')' )
   def SelfInvocation: R0  = rule( `this` ~ oneOrMore(ArgumentExprs) )
   def TemplateStats       = rule( zeroOrMore(TemplateStat) separatedBy Semis )
-  def TopPackageSeq: R0   = rule( oneOrMore(FlatPackageStat) separatedBy Semis )
-  def TopStatSeq: R0      = rule( oneOrMore(TopStat) separatedBy Semis )
   def TypeBounds          = rule( optional(LowBound) ~ optional(HighBound) )
   def TypeDcl             = rule( Id ~ optTypeParamClause ~ TypeBounds )
   def TypeDef             = rule( Id ~ optTypeParamClause ~ `=` ~ Type )
@@ -488,12 +485,13 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     | zeroOrMore(Annotation ~ OneNewlineMax) ~ optModifiers ~ TmplDef
   )
 
+  def FlatPackageStat   = rule( `package` ~ QualId ~ !(WS ~ "{") )
+  def TopPackageSeq: R0 = rule( zeroOrMore(FlatPackageStat) separatedBy Semis )
+  def TopStatSeq: R0    = rule( zeroOrMore(TopStat) separatedBy Semis )
+
   def CompilationUnit: Rule1[String] = rule(
     capture(
-      optSemis ~
-      (TopPackageSeq ~ optional(Semis ~ TopStatSeq) | TopStatSeq | MATCH) ~
-      optSemis ~
-      WL
+      optSemis ~ TopPackageSeq ~ optSemis ~ TopStatSeq ~ optSemis ~ WL
     )
   )
 }
