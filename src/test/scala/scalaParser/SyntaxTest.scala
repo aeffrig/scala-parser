@@ -7,6 +7,11 @@ import scala.util.{Failure, Success}
 import psp.std.ansi._
 import scala.sys.process.Process
 
+sealed trait Result
+final case object Pass extends Result
+final case object Fail extends Result
+final case object Skip extends Result
+
 object SyntaxTest {
   import Predef.{ augmentString => _, wrapString => _, ArrowAssoc => _, _ }
 
@@ -43,12 +48,12 @@ object SyntaxTest {
     new ScalaSyntax(input).CompilationUnit.run() match{
       case Success(`input`)       => ()
       case Success(parsed)        => runtimeException(snippet(input, parsed))
-      case Failure(f: ParseError) => runtimeException(f.position + "\t" + f.formatTraces)
+      case Failure(f: ParseError) => runtimeException("" + f.position) // + "\t" + f.formatTraces)
       case Failure(f)             => runtimeException(s"Unexpected failure: $f")
     }
   }
 
-  def checkPath(root: Path, f: Path): Boolean = {
+  def checkPath(root: Path, f: Path): Result = {
     val input    = f.slurp()
     val fs       = f.toString
     val segments = (fs splitChar '/').toSet
@@ -57,14 +62,19 @@ object SyntaxTest {
       case s                           => "..." + (s takeRight maxFileLen - 3)
     }
     val isNeg  = segments("neg")
-    val isSkip = (skipPaths exists fs.endsWith) || segments("disabled") || segments("pending") || segments("script")
+    val isSkip = (
+         (input startsWith "#!")
+      || (skipPaths exists fs.endsWith)
+      || segments("disabled")
+      || segments("pending")
+      || segments("script")
+    )
     val fmt    = s"[%6s] $maxFileFmt  "
-
     print((s"[%6s] $maxFileFmt  ").format(input.length, path_s))
 
     if (isSkip) {
       println("skip".yellow.to_s)
-      true
+      Skip
     }
     else {
       val result = Try(check(input))
@@ -76,20 +86,28 @@ object SyntaxTest {
         if (passed) "ok".green.to_s
         else result match {
           case Success(_) => "failed".red.to_s + " (expected failure)"
-          case Failure(t) => "failed".red.to_s + "\n" + t.getMessage
+          case Failure(t) => "failed".red.to_s //+ " (at %s)".format(t.getMessage)
         }
       )
-      passed
+      if (passed) Pass else Fail
     }
   }
 
   def main(args0: Array[String]): Unit = {
-    val args     = ( if (args0.isEmpty) Seq(".") else args0.toSeq ) map (x => path(x))
-    val failures = args flatMap (root => scalaPaths(root) filterNot (p => checkPath(root, p)))
-    if (failures.nonEmpty) {
+    val args    = ( if (args0.isEmpty) Seq(".") else args0.toSeq ) map (x => path(x))
+    val results = args flatMap (root => scalaPaths(root) map (p => p -> checkPath(root, p)))
+    val pass    = results filter (_._2 == Pass)
+    val skip    = results filter (_._2 == Skip)
+    val fail    = results filter (_._2 == Fail)
+    val total   = skip.length + pass.length + fail.length
+
+    println(s"%s tests: %s pass, %s fail, %s skipped".format(total, pass.length, fail.length, skip.length))
+
+    if (fail.nonEmpty) {
       println("\nFailures:")
-      failures foreach println
-      runtimeException("There were test failures.")
+      val paths = fail map (_._1)
+      paths foreach println
+      runtimeException("There were (%s) test failures.".format(paths.length))
     }
   }
 }

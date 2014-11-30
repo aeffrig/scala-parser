@@ -22,16 +22,6 @@ scala/test/files/run/deprecate-early-type-defs.scala
 scala/test/files/run/literals.scala
 scala/test/files/run/richs.scala
 scala/test/files/run/t3835.scala
-scala/test/pending/pos/unappgadteval.scala
-scala/test/pending/pos/virt.scala
-scala/test/pending/run/idempotency-partial-functions.scala
-scala/test/pending/run/reify_addressbook.scala
-scala/test/pending/run/signals.scala
-scala/test/pending/run/t1980.scala
-scala/test/pending/script/dashi/a.scala
-scala/test/pending/script/error-messages.scala
-scala/test/pending/script/t2365/runner.scala
-scala/test/pending/shootout/meteor.scala
 scala/test/scaladoc/scalacheck/HtmlFactoryTest.scala
 scalaz/project/build.scala
 scala/test/disabled/neg/abstract-report3.scala
