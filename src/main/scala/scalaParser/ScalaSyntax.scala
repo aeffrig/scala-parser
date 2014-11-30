@@ -182,66 +182,70 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   object IsSensitive extends SensitiveRules(semicolonInference = true)
   object NotSensitive extends SensitiveRules(semicolonInference = false)
 
+
   abstract class SensitiveRules(semicolonInference: Boolean) {
     def MaybeOneNewline: R0 = if (semicolonInference) OneNewlineMax else MATCH
     def MaybeNotNewline: R0 = if (semicolonInference) NotNewline else MATCH
 
-    def ElsePart        = rule( optSemi ~ `else` ~ Expr0 )
-    def TryPart         = rule( `try` ~ Expr0 )
-    def CatchPart       = rule( `catch` ~ Expr0 )
-    def FinPart         = rule( `finally` ~ Expr0 )
-    def MatchPart       = rule( `match` ~ '{' ~ CaseClauses ~ '}' )
-    def IfCFlow         = rule( `if` ~ '(' ~ Expr ~ ')' ~ Expr0 ~ optional(ElsePart) )
-    def WhileCFlow      = rule( `while` ~ '(' ~ Expr ~ ')' ~ Expr0 )
-    def TryCFlow        = rule( TryPart ~ optional(CatchPart) ~ optional(FinPart) )
-    def DoWhileCFlow    = rule( `do` ~ Expr0 ~ optSemi ~ `while` ~ '(' ~ Expr ~ ')' )
-    def ForCFlow        = rule( `for` ~ EnumeratorsPart ~ optYield ~ Expr0 )
-    def AssignPart      = rule( NotSensitive.SimpleExpr ~ `=` ~ Expr0 )
-    def Enumerators     = rule( Generator ~ zeroOrMore(Semis ~ Enumerator) ~ WL )
-    def Generator: R0   = rule( Pattern1 ~ LArrow ~ Expr0 ~ optional(Guard) )
+    def AssignExpr = rule( NotSensitive.SimpleExpr ~ `=` ~ Expr )
+    def DoExpr     = rule( `do` ~ Expr ~ optSemi ~ `while` ~ ParenExpr )
+    def ForExpr    = rule( `for` ~ EnumeratorsPart ~ optYield ~ Expr )
+    def IfExpr     = rule( `if` ~ ParenExpr ~ Expr ~ optional(optSemi ~ ElsePart) )
+    def ReturnExpr = rule( `return` ~ optional(Expr) )
+    def ThrowExpr  = rule( `throw` ~ Expr )
+    def TryExpr    = rule( TryPart ~ optional(CatchPart) ~ optional(FinPart) )
+    def TupleExpr  = rule( '(' ~ optional(Exprs) ~ ')' )
+    def WhileExpr  = rule( `while` ~ ParenExpr ~ Expr )
 
-    def PrefixOpchar    = rule( WL ~ anyOf("-+~!") ~ WS ~ !Basic.OperatorChar )
-    def PrefixExpr      = rule( optional(PrefixOpchar) ~ SimpleExpr )
-    def PostfixPart     = rule( NotNewline ~ Id ~ optional(Newline) )
+    def TryPart   = rule( `try` ~ Expr )
+    def CatchPart = rule( `catch` ~ Expr )
+    def FinPart   = rule( `finally` ~ Expr )
+    def ElsePart  = rule( `else` ~ Expr )
+    def MatchPart = rule( `match` ~ CaseBlock )
+
+    def Enumerators     = rule( Generator ~ zeroOrMore(Semis ~ Enumerator) ~ WL )
+    def Generator: R0   = rule( Pattern1 ~ LArrow ~ Expr ~ optional(Guard) )
+    def Guard: R0       = rule( `if` ~ PostfixExpr )
     def InfixPart       = rule( MaybeNotNewline ~ Id ~ optTypeArgs ~ MaybeOneNewline ~ PrefixExpr )
     def PostfixExpr: R0 = rule( PrefixExpr ~ zeroOrMore(InfixPart) ~ optional(PostfixPart) )
+    def PostfixPart     = rule( NotNewline ~ Id ~ optional(Newline) )
+    def PrefixExpr      = rule( optional(PrefixOpchar) ~ SimpleExpr )
+    def PrefixOpchar    = rule( WL ~ anyOf("-+~!") ~ WS ~ !Basic.OperatorChar )
 
-    def Path: R0 = rule(
-        zeroOrMore(Id ~ '.') ~ `this` ~ zeroOrMore('.' ~ Id)
-      | StableId
-    )
-    def SimpleExpr1 = rule(
+    def SimpleExprStart = rule(
         NewExpr
       | BlockExpr
       | Literal
       | Path
       | Uscore
-      | '(' ~ optional(Exprs) ~ ')'
+      | TupleExpr
     )
-    def Guard: R0 = rule( `if` ~ PostfixExpr )
-    def TrailingUscore = rule( optional(MaybeNotNewline ~ `_`) )
     def SimpleExprPart = rule(
         '.' ~ Id
       | TypeArgs
       | MaybeNotNewline ~ ArgumentExprs
     )
-    def SimpleExpr: R0 = rule( SimpleExpr1 ~ zeroOrMore(SimpleExprPart) ~ TrailingUscore )
+    def SimpleExpr: R0 = rule( SimpleExprStart ~ zeroOrMore(SimpleExprPart) ~ optional(MaybeNotNewline ~ `_`) )
 
+    def Path: R0 = rule(
+        zeroOrMore(Id ~ '.') ~ `this` ~ zeroOrMore('.' ~ Id)
+      | StableId
+    )
     def Enumerator: R0 = rule(
         Generator
       | Guard
-      | Pattern1 ~ `=` ~ Expr0
+      | Pattern1 ~ `=` ~ Expr
     )
-    def Expr0: R0 = rule(
+    def Expr: R0 = rule(
       zeroOrMore(LambdaHead) ~ (
-          IfCFlow
-        | WhileCFlow
-        | TryCFlow
-        | DoWhileCFlow
-        | ForCFlow
-        | `throw` ~ Expr0
-        | `return` ~ optional(Expr0)
-        | AssignPart
+          IfExpr
+        | WhileExpr
+        | TryExpr
+        | DoExpr
+        | ForExpr
+        | ThrowExpr
+        | ReturnExpr
+        | AssignExpr
         | PostfixExpr ~ optional(MatchPart | Ascription)
       )
     )
@@ -315,14 +319,16 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def Annotation          = rule( '@' ~ !Identifiers.Operator ~ SimpleType ~  zeroOrMore(ArgumentExprs) )
   def Annotations         = rule( oneOrMore(Annotation) )
   def BlockExpr: R0       = rule( '{' ~ (CaseClauses | Block) ~ optSemis ~ '}' )
+  def CaseBlock           = rule( '{' ~ CaseClauses ~ '}' )
   def CaseClause: R0      = rule( `case` ~ Pattern ~ optional(NotSensitive.Guard) ~ `=>` ~ Block )
   def CaseClauses: R0     = rule( oneOrMore(CaseClause) )
   def ClassParam          = rule( optAnnotations ~ optional(optModifiers ~ ValOrVar) ~ Id ~ ColonParamType ~ optEqualsExpr )
   def ConstrBlock: R0     = rule( '{' ~ SelfInvocation ~ optional(Semis ~ BlockStats) ~ optSemis ~ '}' )
   def EarlyDef: R0        = rule( zeroOrMore(Annotation ~ OneNewlineMax) ~ optModifiers ~ PatVarDef )
   def EarlyDefs: R0       = rule( '{' ~ optional(oneOrMore(EarlyDef) separatedBy Semis) ~ optSemis ~ '}' ~ `with` )
-  def Expr                = NotSensitive.Expr0
-  def ExprSensitive       = IsSensitive.Expr0
+  def Expr                = ExprNotSensitive
+  def ExprNotSensitive    = NotSensitive.Expr
+  def ExprSensitive       = IsSensitive.Expr
   def Exprs: R0           = rule( oneOrMore(Expr) separatedBy ',' )
   def FlatPackageStat     = rule( `package` ~ QualId ~ !(WS ~ "{") )
   def FunSig              = rule( Id ~ optional(FunTypeParamClause) ~ ParamClauses )
@@ -338,6 +344,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def ParamClause         = rule( OneNewlineMax ~ '(' ~ optional(Params) ~ ')' )
   def ParamClauses        = rule( zeroOrMore(ParamClause) ~ optional(ImplicitParamClause) )
   def Params              = rule( zeroOrMore(Param) separatedBy ',' )
+  def ParenExpr           = rule( '(' ~ ExprNotSensitive ~ ')' )
   def SelfInvocation: R0  = rule( `this` ~ oneOrMore(ArgumentExprs) )
   def TemplateStats       = rule( zeroOrMore(TemplateStat) separatedBy Semis )
   def TopPackageSeq: R0   = rule( oneOrMore(FlatPackageStat) separatedBy Semis )
@@ -353,6 +360,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def VariantTypeParam    = rule( optAnnotations ~ optVariance ~ TypeParam )
   def VariantTypeParams   = rule( oneOrMore(VariantTypeParam) separatedBy ',' )
   def ViewBound           = rule( K.O("<%") ~ Type )
+
   def optAnnotations      = rule( zeroOrMore(Annotation) )
   def optCase             = rule( optional(`case`) )
   def optEarlyDefs        = rule( optional(EarlyDefs) )
