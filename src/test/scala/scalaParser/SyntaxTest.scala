@@ -17,7 +17,8 @@ object SyntaxTest {
   def maxFileLen            = 100
   def maxFileFmt            = "%-" + maxFileLen + "s"
   def scalaSources          = "."
-  def scalaPaths: Seq[Path] = Process(s"find $scalaSources -name *.scala -print").lines map (x => path(x))
+
+  def scalaPaths(root: Path): Seq[Path] = Process(Seq("find", root.toString, "-name", "*.scala", "-print")).lines map (x => path(x))
 
   def dump(f: ParseError) {
     println(f.position)
@@ -47,13 +48,13 @@ object SyntaxTest {
     }
   }
 
-  def checkPath(f: Path): Boolean = {
-    val input = f.slurp()
-    val fs = f.toString
+  def checkPath(root: Path, f: Path): Boolean = {
+    val input    = f.slurp()
+    val fs       = f.toString
     val segments = (fs splitChar '/').toSet
-    val path_s = fs stripPrefix (scalaSources + "/") match {
+    val path_s = fs stripPrefix root.toString stripPrefix "/" match {
       case s if s.length <= maxFileLen => s
-      case s                           => "..." + s.substring(s.length - (maxFileLen - 3), s.length)
+      case s                           => "..." + (s takeRight maxFileLen - 3)
     }
     val isNeg  = segments("neg")
     val isSkip = (skipPaths exists fs.endsWith) || segments("disabled") || segments("pending") || segments("script")
@@ -82,13 +83,13 @@ object SyntaxTest {
     }
   }
 
-  def main(args: Array[String]): Unit = {
-    scalaPaths filterNot checkPath match {
-      case Seq()    =>
-      case failures =>
-        println("\nFailures:")
-        failures foreach println
-        runtimeException("There were test failures.")
+  def main(args0: Array[String]): Unit = {
+    val args     = ( if (args0.isEmpty) Seq(".") else args0.toSeq ) map (x => path(x))
+    val failures = args flatMap (root => scalaPaths(root) filterNot (p => checkPath(root, p)))
+    if (failures.nonEmpty) {
+      println("\nFailures:")
+      failures foreach println
+      runtimeException("There were test failures.")
     }
   }
 }
