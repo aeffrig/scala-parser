@@ -10,7 +10,7 @@ trait Literals {
   def WL: Rule0
 
   private final val TQ        = "\"\"\""
-  private final val Escapable = "btnfr'\\\""
+  private final val Escapable = "0btnfr'\\\""
 
   object Literals {
     import Basic._
