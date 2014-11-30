@@ -1,16 +1,13 @@
 package scalaParser
 
 import org.parboiled2.ParseError
-import utest._
-import utest.framework.Test
-import utest.util.Tree
 import psp.std.{ assert => _, _}
 import psp.std.api._
 import scala.util.{Failure, Success}
 import psp.std.ansi._
 import scala.sys.process.Process
 
-object SyntaxTest extends TestSuite {
+object SyntaxTest {
   import Predef.{ augmentString => _, wrapString => _, ArrowAssoc => _, _ }
 
   private def tryOpt[A](body: => Option[A]): Option[A] = Try(body) | None
@@ -47,35 +44,33 @@ object SyntaxTest extends TestSuite {
       case Failure(f: ParseError) => runtimeException(f.position + "\t" + f.formatTraces)
     }
   }
-  def tests = TestSuite {
+  def main(args: Array[String]): Unit = {
     val failures = Vector.newBuilder[Path]
-    'sources {
-      scalaPaths foreach { f =>
-        val input = f.slurp()
-        val fs = f.toString
-        val segments = (fs splitChar '/').toSet
-        val path_s = fs stripPrefix (scalaSources + "/") match {
-          case s if s.length <= maxFileLen => s
-          case s                           => "..." + s.substring(s.length - (maxFileLen - 3), s.length)
-        }
-        val isNeg = segments("neg")
-        val skip  = (skipPaths exists fs.endsWith) || segments("disabled") || segments("pending") || segments("script")
-        val fmt   = s"[%6s] $maxFileFmt  "
-        print((s"[%6s] $maxFileFmt  ").format(input.length, path_s))
-        println(
-          if (skip) "skip".yellow.to_s
-          else Try(check(input)) match {
-            case Success(_) if isNeg => failures += f ; "failed".red.to_s + " (expected failure)"
-            case Success(_)          => "ok".green.to_s
-            case Failure(_) if isNeg => "ok".green.to_s
-            case Failure(t)          => failures += f ; "failed".red.to_s + "\n" + t.getMessage
-          }
-        )
+    scalaPaths foreach { f =>
+      val input = f.slurp()
+      val fs = f.toString
+      val segments = (fs splitChar '/').toSet
+      val path_s = fs stripPrefix (scalaSources + "/") match {
+        case s if s.length <= maxFileLen => s
+        case s                           => "..." + s.substring(s.length - (maxFileLen - 3), s.length)
       }
-      println("\nFailures:")
-      val failed = failures.result
-      failed foreach println
-      assert(failed.isEmpty, "There were test failures.")
+      val isNeg = segments("neg")
+      val skip  = (skipPaths exists fs.endsWith) || segments("disabled") || segments("pending") || segments("script")
+      val fmt   = s"[%6s] $maxFileFmt  "
+      print((s"[%6s] $maxFileFmt  ").format(input.length, path_s))
+      println(
+        if (skip) "skip".yellow.to_s
+        else Try(check(input)) match {
+          case Success(_) if isNeg => failures += f ; "failed".red.to_s + " (expected failure)"
+          case Success(_)          => "ok".green.to_s
+          case Failure(_) if isNeg => "ok".green.to_s
+          case Failure(t)          => failures += f ; "failed".red.to_s + "\n" + t.getMessage
+        }
+      )
     }
+    println("\nFailures:")
+    val failed = failures.result
+    failed foreach println
+    assert(failed.isEmpty, "There were test failures.")
   }
 }
