@@ -1,3 +1,6 @@
+def buildBase      = baseDirectory in LocalRootProject
+def scratchSources = Def task (buildBase.value / "scratch" * "*.scala" get)
+
 def common = Seq(
          scalaVersion :=  "2.11.4",
         scalacOptions +=  "-language:_",
@@ -12,10 +15,12 @@ val macros = project settings (common: _*) settings (
 )
 
 val parser = project dependsOn macros settings (common: _*) settings (
-  name := "scala-parser",
-  test := (run in Test toTask "").value
+          name :=  "scala-parser",
+          test :=  (run in Test toTask "").value
 )
 
 run in Test <<= run in Test in parser
 
 run <<= run in Compile in parser
+
+watchSources ++= scratchSources.value
