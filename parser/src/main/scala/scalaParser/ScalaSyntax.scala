@@ -43,20 +43,21 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
    */
   def pr(s: String) = rule { run(println(s"LOGGING $cursor: $s")) }
 
-  def CommentWS  = rule( SpaceWS ~ Literals.Comment ~ SpaceWS ~ Basic.Newline )
-  def DotId      = rule( '.' ~ Id )
-  def Id         = rule( WL ~ Identifiers.Id )
-  def IdDot      = rule( Id ~ '.' )
-  def IdOrUscore = rule( Id | Uscore )
-  def Ids        = rule( rep1sep(Id, Comma) )
-  def Literal    = rule( WL ~ Literals.Literal )
-  def NL         = rule( WL ~ Basic.Newline )
-  def OptNL      = rule( WS ~ opt(Basic.Newline) )
-  def QualId     = rule( WL ~ rep1sep(Id, '.') )
-  def Semi       = rule( WS ~ Basic.Semi )
-  def Semis      = rule( rep1(Semi) )
-  def SpaceWS    = rule( rep(Basic.WhitespaceChar) )
-  def VarId      = rule( WL ~ Identifiers.VarId )
+  def CommentWS     = rule( SpaceWS ~ Literals.Comment ~ SpaceWS ~ Basic.Newline )
+  def DotId         = rule( '.' ~ Id )
+  def Id            = rule( WL ~ Identifiers.Id )
+  def IdDot         = rule( Id ~ '.' )
+  def IdOrUscore    = rule( Id | Uscore )
+  def Ids           = rule( rep1sep(Id, Comma) )
+  def Literal       = rule( WL ~ Literals.Literal )
+  def NL            = rule( WL ~ Basic.Newline )
+  def OptNL         = rule( WS ~ opt(Basic.Newline) )
+  def QualId        = rule( WL ~ rep1sep(Id, '.') )
+  def Semi          = rule( WS ~ Basic.Semi )
+  def Semis         = rule( rep1(Semi) )
+  def SpaceWS       = rule( rep(Basic.WhitespaceChar) )
+  def VarId         = rule( WL ~ Identifiers.VarId )
+  def VarIdOrUscore = rule( VarId | Uscore )
 
   def ThisOrSuper = rule(
       `this`
@@ -231,8 +232,9 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def Pattern1: R0 = rule( Uscore ~ ColonTypePat | VarId ~ ColonTypePat | Pattern2 )
   def Pattern2: R0 = {
     def Pattern3: R0 = rule( WildcardStar | SimplePattern ~ rep(Id ~ SimplePattern) )
+
     rule(
-        VarId ~ At ~ Pattern3
+        VarIdOrUscore ~ At ~ Pattern3
       | Pattern3
       | VarId
     )
