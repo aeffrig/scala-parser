@@ -1,5 +1,6 @@
 def common = Seq(
          scalaVersion :=  "2.11.4",
+        scalacOptions +=  "-language:_",
   libraryDependencies ++= Seq(
     "org.improving" %% "psp-std"   % "0.5.0",
     "org.parboiled" %% "parboiled" % "2.0.2-SNAPSHOT"

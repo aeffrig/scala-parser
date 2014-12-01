@@ -1,3 +1,4 @@
+package scalaParser
 package macros
 
 import scala.language.experimental.macros
