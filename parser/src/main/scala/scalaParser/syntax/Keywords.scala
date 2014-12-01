@@ -25,6 +25,7 @@ trait Keywords {
   def `<:` = rule( operator("<:") )
   def `>:` = rule( operator(">:") )
   def `#`  = rule( operator("#") )
+  def `|`  = rule( operator("|") )
 
   def `_`         = rule( keyword("_") )
   def `abstract`  = rule( keyword("abstract") )

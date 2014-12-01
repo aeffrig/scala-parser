@@ -10,8 +10,8 @@ trait Identifiers {
   object Identifiers {
     import Basic._
 
-    def VarId   = EncodedVarId
-    def PlainId = EncodedPlainId
+    def VarId          = EncodedVarId
+    def PlainId        = EncodedPlainId
 
     def Operator       = rule( !Keywords ~ oneOrMore(OperatorChar) )
     def EncodedVarId   = rule( !Keywords ~ Lower ~ EncodedIdRest )

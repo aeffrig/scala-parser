@@ -23,7 +23,7 @@ object SyntaxTest {
   def maxFileFmt            = "%-" + maxFileLen + "s"
   def scalaSources          = "."
 
-  def scalaPaths(root: Path): Seq[Path] = Process(Seq("find", root.toString, "-name", "*.scala", "-print")).lines map (x => path(x))
+  def scalaPaths(root: Path): Seq[Path] = Process(Seq("find", s"$root/", "-name", "*.scala", "-print")).lines map (x => path(x))
 
   def dump(f: ParseError) {
     println(f.position)
