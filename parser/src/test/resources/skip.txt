@@ -704,6 +704,8 @@ scala/test/files/neg/t7285.scala
 scala/test/files/neg/t7289.scala
 scala/test/files/neg/t7289_status_quo.scala
 scala/test/files/neg/t729.scala
+scala/test/files/neg/t7292-deprecation.scala
+scala/test/files/neg/t7292-removal.scala
 scala/test/files/neg/t7294.scala
 scala/test/files/neg/t7294b.scala
 scala/test/files/neg/t7299.scala

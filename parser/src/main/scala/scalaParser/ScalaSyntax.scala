@@ -172,7 +172,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     def Enumerator: R0 = rule(
         Generator
       | Guard
-      | Pattern1 ~ `=` ~ Expr
+      | Pattern1 ~ `=` ~ Expr ~ opt(Guard) // XXX
     )
     def Expr: R0 = rule(
       rep(LambdaHead) ~ (
