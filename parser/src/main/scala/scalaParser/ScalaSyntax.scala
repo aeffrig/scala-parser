@@ -13,13 +13,13 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
    * really useful in e.g. {} blocks, where we want to avoid
    * capturing newlines so semicolon-inference would work
    */
-  def WS = rule( (Basic.WhitespaceChar | Literals.Comment)* )
+  def WS = rule( rep(Basic.WhitespaceChar | Literals.Comment) )
 
   /**
    * Parses whitespace, including newlines.
    * This is the default for most things
    */
-  def WL = rule( (Basic.WhitespaceChar | Literals.Comment | Basic.Newline)* )
+  def WL = rule( rep(Basic.WhitespaceChar | Literals.Comment | Basic.Newline) )
 
   /**
    * By default, all strings and characters greedily
@@ -54,7 +54,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
 
   private def commentWs = rule( optWS ~ Literals.Comment ~ optWS ~ Basic.Newline )
   private def optWS     = rule( Basic.WhitespaceChar* )
-  private def optNL     = rule( Basic.Newline? )
+  private def optNL     = rule( opt(Basic.Newline) )
 
   def ThisOrSuper = rule(
       `this`
@@ -109,7 +109,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def TypeArgs          = rule( '[' ~ Types ~ ']' )
   def TypePat           = rule( CompoundType )
   def TypeProjection    = rule( '#' ~ Id )
-  def TypeSuffix        = rule( (TypeArgs | TypeProjection)* )
+  def TypeSuffix        = rule( rep(TypeArgs | TypeProjection) )
   def Types             = rule( rep1sep(Type, ',') )
 
   def EnumeratorsPart = rule(
@@ -278,7 +278,6 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def LocalModifier       = rule( `abstract` | `final` | `sealed` | `implicit` | `lazy` )
   def LowBound            = rule( SuperType ~ Type )
   def Modifier            = rule( LocalModifier | AccessModifier | `override` )
-  def NewExpr             = rule( `new` ~ (ClassTemplate | TemplateBody) )
   def ObjectDef: R0       = rule( Id ~ ClassTemplateOpt )
   def Param               = rule( rep(Annotation) ~ Id ~ opt(ColonParamType) ~ opt(`=` ~ Expr) )
   def ParamClause         = rule( OneNewlineMax ~ '(' ~ opt(Params) ~ ')' )
@@ -286,7 +285,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def Params              = rule( repsep(Param, ',') )
   def ParenExpr           = rule( '(' ~ Expr ~ ')' )
   def SelfInvocation: R0  = rule( `this` ~ rep1(ArgumentExprs) )
-  def TemplateStats       = rule( repsep(TemplateStat, Semis) )
+  def TemplateStats       = rule( optSemis ~ repsep(TemplateStat, Semis) ~ optSemis )
   def TypeBounds          = rule( opt(LowBound) ~ opt(HighBound) )
   def TypeDcl             = rule( Id ~ opt(TypeParamClause) ~ TypeBounds )
   def TypeDef             = rule( Id ~ opt(TypeParamClause) ~ `=` ~ Type )
@@ -304,13 +303,10 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
 
   private def DefOrDcl          = rule( Def | Dcl )
   private def ValOrVar          = rule( `val` | `var` )
-  private def WithClauses       = rule( (`with` ~ AnnotType)* )
-  private def TraitParents      = rule( AnnotType ~ WithClauses )
-  private def TraitTemplate     = rule( opt(EarlyDefs) ~ TraitParents ~ opt(TemplateBody) )
+  private def WithClauses       = rule( rep(`with` ~ AnnotType) )
   private def PackageObject: R0 = rule( `package` ~ `object` ~ ObjectDef )
   private def Packaging: R0     = rule( `package` ~ QualId ~ '{' ~ optSemis ~ opt(TopStatSeq) ~ optSemis ~ '}' )
 
-  def TemplateBody: R0 = rule( '{' ~ opt(SelfType) ~ optSemis ~ TemplateStats ~ optSemis ~ '}' )
   def TemplateStat: R0 = rule(
       Import
     | zeroOrMore(Annotation ~ OneNewlineMax) ~ rep(Modifier) ~ DefOrDcl
@@ -365,31 +361,25 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     def ClassParamClauses: R0 = rule( rep1(ClassParamClause) ~ opt(ImplicitClause) | ImplicitClause )
     def Annot: R0             = rule( '@' ~ SimpleType ~ ArgumentExprs )
     def ConstrPrelude: R0     = rule( rep1(Annot) ~ opt(AccessModifier) | rep(Annot) ~ AccessModifier )
-    def TraitDef: R0          = rule( Id ~ opt(TypeParamClause) ~ TraitTemplateOpt )
     def ClassDef: R0          = rule( Id ~ opt(TypeParamClause) ~ opt(NotNewline ~ ConstrPrelude) ~ opt(ClassParamClauses) ~ ClassTemplateOpt )
 
     rule(
-        `trait` ~ TraitDef
+        `trait` ~ ClassDef
       | opt(`case`) ~ `class` ~ ClassDef
       | opt(`case`) ~ `object` ~ ObjectDef
     )
   }
 
-  def TraitTemplateOpt: R0 = rule(
-      `extends` ~ TraitTemplate
-    | opt(opt(`extends`) ~ TemplateBody)
-  )
+  def ClassTemplateOrBody  = rule( ClassTemplate | TemplateBody )
+  def NewExpr              = rule( `new` ~ ClassTemplateOrBody )
+  def TemplateBody: R0     = rule( '{' ~ opt(SelfType) ~ TemplateStats ~ '}' )
+  def Parents              = rule( AnnotType ~ rep(NotNewline ~ ArgumentExprs) ~ WithClauses )
+  def ClassTemplate        = rule( opt(EarlyDefs) ~ Parents ~ opt(TemplateBody) )
   def ClassTemplateOpt: R0 = rule(
-      `extends` ~ ClassTemplate
-    | opt(opt(`extends`) ~ TemplateBody)
+      `extends` ~ ClassTemplateOrBody
+    | TemplateBody
+    | MATCH
   )
-
-  def ClassTemplate: R0 = {
-    def Constr: R0       = rule( AnnotType ~ zeroOrMore(NotNewline ~ ArgumentExprs) )
-    def ClassParents: R0 = rule( Constr ~ WithClauses )
-
-    rule( opt(EarlyDefs) ~ ClassParents ~ opt(TemplateBody) )
-  }
 
   private def TopStat: R0 = rule(
       Packaging
