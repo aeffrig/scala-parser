@@ -126,7 +126,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
 
     def AssignExpr = rule( NotSensitive.SimpleExpr ~ `=` ~ Expr )
     def DoExpr     = rule( `do` ~ Expr ~ optSemi ~ `while` ~ ParenExpr )
-    def ForExpr    = rule( `for` ~ EnumeratorsPart ~ optYield ~ Expr )
+    def ForExpr    = rule( `for` ~ EnumeratorsPart ~ opt(`yield`) ~ Expr )
     def IfExpr     = rule( `if` ~ ParenExpr ~ Expr ~ opt(optSemi ~ ElsePart) )
     def ReturnExpr = rule( `return` ~ opt(Expr) )
     def ThrowExpr  = rule( `throw` ~ Expr )
@@ -191,7 +191,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
 
   def LambdaHead = rule(
     (   '(' ~ (Binding.* sep ',') ~ ')'
-      | optImplicit ~ Id ~ opt(ColonInfixType)
+      | opt(`implicit`) ~ Id ~ opt(ColonInfixType)
       | `_` ~ opt(Ascription)
     ) ~ `=>`
   )
@@ -202,7 +202,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   )
 
   def BlockStats: R0 = {
-    def Template: R0 = rule( Annotation.* ~ (optImplicit ~ optLazy ~ Def | LocalModifier.* ~ TmplDef) )
+    def Template: R0 = rule( Annotation.* ~ (opt(`implicit`) ~ opt(`lazy`) ~ Def | LocalModifier.* ~ TmplDef) )
     def BlockStat: R0 = rule(
         Import
       | Template
@@ -257,9 +257,9 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def CaseBlock           = rule( '{' ~ CaseClauses ~ '}' )
   def CaseClause: R0      = rule( `case` ~ Pattern ~ opt(NotSensitive.Guard) ~ `=>` ~ Block )
   def CaseClauses: R0     = rule( CaseClause+ )
-  def ClassParam          = rule( Annotation.* ~ opt(optModifiers ~ ValOrVar) ~ Id ~ ColonParamType ~ optEqualsExpr )
+  def ClassParam          = rule( Annotation.* ~ opt(rep(Modifier) ~ ValOrVar) ~ Id ~ ColonParamType ~ opt(`=` ~ Expr) )
   def ConstrBlock: R0     = rule( '{' ~ SelfInvocation ~ opt(Semis ~ BlockStats) ~ optSemis ~ '}' )
-  def EarlyDef: R0        = rule( zeroOrMore(Annotation ~ OneNewlineMax) ~ optModifiers ~ PatVarDef )
+  def EarlyDef: R0        = rule( zeroOrMore(Annotation ~ OneNewlineMax) ~ rep(Modifier) ~ PatVarDef )
   def EarlyDefs: R0       = rule( '{' ~ (EarlyDef.* sep Semis) ~ optSemis ~ '}' ~ `with` )
   def Expr                = rule( NotSensitive.Expr )
   def ExprSensitive       = rule( IsSensitive.Expr )
@@ -280,7 +280,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def Modifier            = rule( LocalModifier | AccessModifier | `override` )
   def NewExpr             = rule( `new` ~ (ClassTemplate | TemplateBody) )
   def ObjectDef: R0       = rule( Id ~ ClassTemplateOpt )
-  def Param               = rule( Annotation.* ~ Id ~ opt(ColonParamType) ~ optEqualsExpr )
+  def Param               = rule( Annotation.* ~ Id ~ opt(ColonParamType) ~ opt(`=` ~ Expr) )
   def ParamClause         = rule( OneNewlineMax ~ '(' ~ opt(Params) ~ ')' )
   def ParamClauses        = rule( ParamClause.* ~ opt(ImplicitParamClause) )
   def Params              = rule( Param.* sep ',' )
@@ -299,16 +299,8 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def VariantTypeParams   = rule( VariantTypeParam.+ sep ',' )
   def ViewBound           = rule( K.O("<%") ~ Type )
 
-  def optCase       = rule( opt(`case`) )
-  def optEqualsExpr = rule( opt(`=` ~ Expr) )
-  def optExtends    = rule( opt(`extends`) )
-  def optImplicit   = rule( opt(`implicit`) )
-  def optLazy       = rule( opt(`lazy`) )
-  def optMacro      = rule( opt(`macro`) )
-  def optModifiers  = rule( Modifier* )
   def optSemi       = rule( opt(Semi) )
   def optSemis      = rule( opt(Semis) )
-  def optYield      = rule( opt(`yield`) )
 
   private def DefOrDcl          = rule( Def | Dcl )
   private def ValOrVar          = rule( `val` | `var` )
@@ -321,7 +313,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def TemplateBody: R0 = rule( '{' ~ opt(SelfType) ~ optSemis ~ TemplateStats ~ optSemis ~ '}' )
   def TemplateStat: R0 = rule(
       Import
-    | zeroOrMore(Annotation ~ OneNewlineMax) ~ optModifiers ~ DefOrDcl
+    | zeroOrMore(Annotation ~ OneNewlineMax) ~ rep(Modifier) ~ DefOrDcl
     | ExprSensitive
   )
 
@@ -350,7 +342,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def Def: R0 = {
     def ConstrExpr: R0 = rule( ConstrBlock | SelfInvocation )
     def FunBody: R0 = rule(
-        `=` ~ optMacro ~ ExprSensitive
+        `=` ~ opt(`macro`) ~ ExprSensitive
       | OneNewlineMax ~ '{' ~ Block ~ '}'
     )
     def FunDef: R0 = rule(
@@ -378,18 +370,18 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
 
     rule(
         `trait` ~ TraitDef
-      | optCase ~ `class` ~ ClassDef
-      | optCase ~ `object` ~ ObjectDef
+      | opt(`case`) ~ `class` ~ ClassDef
+      | opt(`case`) ~ `object` ~ ObjectDef
     )
   }
 
   def TraitTemplateOpt: R0 = rule(
       `extends` ~ TraitTemplate
-    | opt(optExtends ~ TemplateBody)
+    | opt(opt(`extends`) ~ TemplateBody)
   )
   def ClassTemplateOpt: R0 = rule(
       `extends` ~ ClassTemplate
-    | opt(optExtends ~ TemplateBody)
+    | opt(opt(`extends`) ~ TemplateBody)
   )
 
   def ClassTemplate: R0 = {
@@ -403,7 +395,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
       Packaging
     | PackageObject
     | Import
-    | zeroOrMore(Annotation ~ OneNewlineMax) ~ optModifiers ~ TmplDef
+    | zeroOrMore(Annotation ~ OneNewlineMax) ~ rep(Modifier) ~ TmplDef
   )
 
   private def BlockStart = rule( &( WS ~ '{' ) )
