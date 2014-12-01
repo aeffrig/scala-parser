@@ -7,7 +7,7 @@ import scalaParser.macros.Macros._
 /**
  * Parser for Scala syntax.
  */
-class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identifiers with Literals with Keywords {
+class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identifiers with Literals with Keywords with Xml {
   /**
    * Parses all whitespace, excluding newlines. This is only
    * really useful in e.g. {} blocks, where we want to avoid
@@ -150,7 +150,8 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     def PrefixOpchar    = rule( WL ~ anyOf("-+~!") ~ WS ~ !Basic.OperatorChar )
 
     def SimpleExprStart = rule(
-        NewExpr
+        XmlExpr
+      | NewExpr
       | BlockExpr
       | Literal
       | Path
@@ -222,6 +223,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     )
   }
 
+  def Patterns: R0 = rule( rep1sep(Pattern, ',') )
   def Pattern: R0  = rule( rep1sep(Pattern1, '|') )
   def Pattern1: R0 = rule( `_` ~ ColonTypePat | VarId ~ ColonTypePat | Pattern2 )
   def Pattern2: R0 = {
@@ -239,7 +241,8 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   private def Extractor        = rule( StableId ~ opt(TuplePattern) )
 
   def SimplePattern: R0 = rule(
-      AnonTypedPattern
+      XmlPattern
+    | AnonTypedPattern
     | Literal
     | TuplePattern
     | Extractor
