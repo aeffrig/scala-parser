@@ -278,7 +278,6 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def LocalModifier       = rule( `abstract` | `final` | `sealed` | `implicit` | `lazy` )
   def LowBound            = rule( SuperType ~ Type )
   def Modifier            = rule( LocalModifier | AccessModifier | `override` )
-  def ObjectDef: R0       = rule( Id ~ ClassTemplateOpt )
   def Param               = rule( rep(Annotation) ~ Id ~ opt(ColonParamType) ~ opt(`=` ~ Expr) )
   def ParamClause         = rule( OneNewlineMax ~ '(' ~ opt(Params) ~ ')' )
   def ParamClauses        = rule( rep(ParamClause) ~ opt(ImplicitParamClause) )
@@ -354,6 +353,15 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     )
   }
 
+  def TemplateDefIntro = rule(
+      `trait`
+    | `class`
+    | `object`
+    | `case` ~ `class`
+    | `case` ~ `object`
+    | `package` ~ `object`
+  )
+
   def TmplDef: R0 = {
     def ClassParams           = rule( rep1sep(ClassParam, ',') )
     def ImplicitClause: R0    = rule( OneNewlineMax ~ '(' ~ `implicit` ~ ClassParams ~ ')' )
@@ -363,13 +371,10 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     def ConstrPrelude: R0     = rule( rep1(Annot) ~ opt(AccessModifier) | rep(Annot) ~ AccessModifier )
     def ClassDef: R0          = rule( Id ~ opt(TypeParamClause) ~ opt(NotNewline ~ ConstrPrelude) ~ opt(ClassParamClauses) ~ ClassTemplateOpt )
 
-    rule(
-        `trait` ~ ClassDef
-      | opt(`case`) ~ `class` ~ ClassDef
-      | opt(`case`) ~ `object` ~ ObjectDef
-    )
+    rule( TemplateDefIntro ~ ClassDef )
   }
 
+  def ObjectDef: R0        = rule( Id ~ ClassTemplateOpt )
   def ClassTemplateOrBody  = rule( ClassTemplate | TemplateBody )
   def NewExpr              = rule( `new` ~ ClassTemplateOrBody )
   def TemplateBody: R0     = rule( '{' ~ opt(SelfType) ~ TemplateStats ~ '}' )
