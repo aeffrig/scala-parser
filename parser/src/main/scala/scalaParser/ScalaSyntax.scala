@@ -28,16 +28,18 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   implicit private[this] def wspStr(s: String): R0 = rule( WL ~ str(s) )
   implicit private[this] def wspChar(s: Char): R0  = rule( WL ~ ch(s) )
 
-  def Comma        = rule( ',' )
-  def At           = rule( `@` )
-  def Colon        = rule( `:` )
-  def LArrow       = rule( `<-` )
-  def RArrow       = rule( `=>` )
-  def SubType      = rule( `<:` )
-  def SuperType    = rule( `>:` )
-  def Uscore       = rule( `_` )
-  def WildcardStar = rule( `_` ~ `*` )
-  def Pipe         = rule( `|` )
+  def Comma         = rule( ',' )
+  def At            = rule( `@` )
+  def Colon         = rule( `:` )
+  def LArrow        = rule( `<-` )
+  def RArrow        = rule( `=>` )
+  def SubType       = rule( `<:` )
+  def SuperType     = rule( `>:` )
+  def Uscore        = rule( `_` )
+  def WildcardStar  = rule( `_` ~ `*` )
+  def Pipe          = rule( `|` )
+  def PackageObject = rule( `package` ~ `object` )
+  def Package       = rule( `package` )
 
   /**
    * helper printing function
@@ -242,14 +244,11 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     | VarId
   )
 
-  def Modifiers   = rule( rep(Modifier) )
-  def Annotations = rule( rep1(Annotation) )
-
   def AccessModifier      = rule( (`private` | `protected`) ~ opt(AccessQualifier) )
   def AccessQualifier     = rule( '[' ~ (`this` | Id) ~ ']' )
-  def MethodTypeBounds    = rule( TypeBounds ~ rep(ViewBound) ~ rep(Colon ~ Type) )
   def AnnotatedTypeParams = rule( rep1sep(rep(Annotation) ~ TypeParam, Comma) )
   def Annotation          = rule( At ~ SimpleType ~ rep(ArgumentExprs) )
+  def Annotations         = rule( rep1(Annotation) )
   def BlockExpr: R0       = rule( '{' ~ (CaseClauses | Block) ~ optSemis ~ '}' )
   def CaseBlock           = rule( '{' ~ CaseClauses ~ '}' )
   def CaseClause: R0      = rule( `case` ~ Pattern ~ opt(NotSensitive.Guard) ~ RArrow ~ Block )
@@ -270,33 +269,31 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def ImportSuffix        = rule( '.' ~ (Uscore | ImportSelectors) )
   def LocalModifier       = rule( `abstract` | `final` | `sealed` | `implicit` | `lazy` )
   def LowBound            = rule( SuperType ~ Type )
+  def MethodTypeBounds    = rule( TypeBounds ~ rep(ViewBound) ~ rep(Colon ~ Type) )
   def Modifier            = rule( LocalModifier | AccessModifier | `override` )
+  def Modifiers           = rule( rep(Modifier) )
+  def OptType             = rule( opt(Colon ~ Type) )
   def Param               = rule( rep(Annotation) ~ Id ~ opt(ColonParamType) ~ opt(`=` ~ Expr) )
   def ParamClause         = rule( OneNLMax ~ '(' ~ opt(Params) ~ ')' )
   def ParamClauses        = rule( rep(ParamClause) ~ opt(ImplicitParamClause) )
   def Params              = rule( repsep(Param, Comma) )
   def ParenExpr           = rule( '(' ~ Expr ~ ')' )
   def SelfInvocation: R0  = rule( `this` ~ rep1(ArgumentExprs) )
-  def TemplateStats       = rule( optSemis ~ repsep(TemplateStat, Semis) ~ optSemis )
   def TypeBounds          = rule( opt(LowBound) ~ opt(HighBound) )
   def TypeDef             = rule( Id ~ TypeParamClauses ~ `=` ~ Type )
   def TypeParam: R0       = rule( IdOrUscore ~ TypeParamClauses ~ MethodTypeBounds )
   def TypeParamClause     = rule( '[' ~ VariantTypeParams ~ ']' )
   def TypeParamClauses    = rule( rep(TypeParamClause) )
+  def ValOrVar            = rule( `val` | `var` )
   def VarargsStar         = rule( Colon ~ WildcardStar )
   def VarianceAnnot       = rule( WL ~ anyOf("+-") )
   def VariantTypeParam    = rule( rep(Annotation) ~ opt(VarianceAnnot) ~ TypeParam )
   def VariantTypeParams   = rule( rep1sep(VariantTypeParam, Comma) )
   def ViewBound           = rule( `<%` ~ Type )
+  def WithClauses         = rule( rep(`with` ~ AnnotType) )
 
   def optSemi  = rule( opt(Semi) )
   def optSemis = rule( opt(Semis) )
-  def OptType  = rule( opt(Colon ~ Type) )
-
-  private def ValOrVar          = rule( `val` | `var` )
-  private def WithClauses       = rule( rep(`with` ~ AnnotType) )
-  private def PackageObject: R0 = rule( `package` ~ `object` ~ ObjectDef )
-  private def Packaging: R0     = rule( `package` ~ QualId ~ '{' ~ optSemis ~ opt(TopStatSeq) ~ optSemis ~ '}' )
 
   def TemplateStat: R0 = rule(
       Import
@@ -309,21 +306,37 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     | IdOrUscore ~ opt(Colon ~ InfixType) ~ RArrow
   )
 
-  def ConstructorBody      = rule( ConstructorBlockBody | SelfInvocation )
-  def FunSig               = rule( Id ~ opt(FunTypeParamClause) ~ ParamClauses )
-  def Patterns             = rule( rep1sep(Pattern2, Comma) )
   def BlockBody            = rule( OneNLMax ~ '{' ~ Block ~ '}' )
+  def ClassDef             = rule( Id ~ TypeParamClauses ~ opt(NotNL ~ ConstrPrelude) ~ opt(ClassParamClauses) ~ ClassTemplateOpt )
+  def ClassParamClause     = rule( OneNLMax ~ '(' ~ opt(ClassParams) ~ ')' )
+  def ClassParamClauses    = rule( rep1(ClassParamClause) ~ opt(ImplicitClause) | ImplicitClause )
+  def ClassParams          = rule( rep1sep(ClassParam, Comma) )
+  def ClassTemplate        = rule( opt(EarlyDefs) ~ Parents ~ opt(TemplateBody) )
+  def ClassTemplateOrBody  = rule( ClassTemplate | TemplateBody )
+  def ConstrPrelude        = rule( Annotations ~ opt(AccessModifier) | opt(Annotations) ~ AccessModifier )
   def ConstructorBlockBody = rule( '{' ~ SelfInvocation ~ opt(Semis ~ BlockStats) ~ optSemis ~ '}' )
-  def EarlyDef: R0         = rule( rep(Annotation ~ OneNLMax) ~ Modifiers ~ EarlyableDef )
-  def EarlyDefs: R0        = rule( '{' ~ repsep(EarlyDef, Semis) ~ optSemis ~ '}' ~ `with` )
+  def ConstructorBody      = rule( ConstructorBlockBody | SelfInvocation )
+  def EarlyDef             = rule( rep(Annotation ~ OneNLMax) ~ Modifiers ~ EarlyableDef )
+  def EarlyDefs            = rule( '{' ~ repsep(EarlyDef, Semis) ~ optSemis ~ '}' ~ `with` )
+  def FlatPackageStat      = rule( Package ~ QualId ~ !BlockStart )
+  def FunSig               = rule( Id ~ opt(FunTypeParamClause) ~ ParamClauses )
+  def ImplicitClause       = rule( OneNLMax ~ '(' ~ `implicit` ~ ClassParams ~ ')' )
+  def NamesAndType         = rule( rep1sep(Id, Comma) ~ Colon ~ Type )
+  def NewExpr              = rule( `new` ~ ClassTemplateOrBody )
+  def ObjectDef            = rule( Id ~ ClassTemplateOpt )
+  def Parents              = rule( AnnotType ~ rep(NotNL ~ ArgumentExprs) ~ WithClauses )
+  def Patterns             = rule( rep1sep(Pattern2, Comma) )
+  def TemplateBody         = rule( '{' ~ opt(SelfType) ~ TemplateStatSeq ~ '}' )
+  def TmplDef              = rule( TemplateDefIntro ~ ClassDef )
+  def TopPackageSeq        = rule( optSemis ~ repsep(FlatPackageStat, Semis) ~ optSemis )
+  def TemplateStatSeq      = rule( optSemis ~ repsep(TemplateStat, Semis) ~ optSemis )
+  def TopStatSeq           = rule( optSemis ~ repsep(TopStat, Semis) ~ optSemis )
 
-  def NamesAndType = rule( rep1sep(Id, Comma) ~ Colon ~ Type )
   def EarlyableDef = rule(
       `var` ~ NamesAndType ~ `=` ~ Uscore
     | ValOrVar ~ Patterns ~ OptType ~ `=` ~ ExprSensitive
     | `type` ~ TypeDef
   )
-
   def Def: R0 = rule(
       EarlyableDef
     | `def` ~ `this` ~ ParamClause ~ ParamClauses ~ (`=` ~ ConstructorBody | OneNLMax ~ ConstructorBlockBody)
@@ -331,7 +344,6 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     | `def` ~ FunSig ~ BlockBody
     | TmplDef
   )
-
   def StableDcl = rule(
       `val` ~ NamesAndType
     | `type` ~ Id ~ TypeParamClauses ~ TypeBounds
@@ -347,26 +359,9 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     | `object`
     | `case` ~ `class`
     | `case` ~ `object`
-    | `package` ~ `object`
+    | PackageObject
   )
 
-  def TmplDef: R0 = {
-    def ClassParams           = rule( rep1sep(ClassParam, Comma) )
-    def ImplicitClause: R0    = rule( OneNLMax ~ '(' ~ `implicit` ~ ClassParams ~ ')' )
-    def ClassParamClause: R0  = rule( OneNLMax ~ '(' ~ opt(ClassParams) ~ ')' )
-    def ClassParamClauses: R0 = rule( rep1(ClassParamClause) ~ opt(ImplicitClause) | ImplicitClause )
-    def ConstrPrelude: R0     = rule( Annotations ~ opt(AccessModifier) | opt(Annotations) ~ AccessModifier )
-    def ClassDef: R0          = rule( Id ~ TypeParamClauses ~ opt(NotNL ~ ConstrPrelude) ~ opt(ClassParamClauses) ~ ClassTemplateOpt )
-
-    rule( TemplateDefIntro ~ ClassDef )
-  }
-
-  def ObjectDef: R0        = rule( Id ~ ClassTemplateOpt )
-  def ClassTemplateOrBody  = rule( ClassTemplate | TemplateBody )
-  def NewExpr              = rule( `new` ~ ClassTemplateOrBody )
-  def TemplateBody: R0     = rule( '{' ~ opt(SelfType) ~ TemplateStats ~ '}' )
-  def Parents              = rule( AnnotType ~ rep(NotNL ~ ArgumentExprs) ~ WithClauses )
-  def ClassTemplate        = rule( opt(EarlyDefs) ~ Parents ~ opt(TemplateBody) )
   def ClassTemplateOpt: R0 = rule(
       `extends` ~ ClassTemplateOrBody
     | TemplateBody
@@ -374,8 +369,8 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   )
 
   private def TopStat: R0 = rule(
-      Packaging
-    | PackageObject
+      Package ~ QualId ~ '{' ~ TopStatSeq ~ '}'
+    | PackageObject ~ ObjectDef
     | Import
     | rep(Annotation ~ OneNLMax) ~ Modifiers ~ TmplDef
   )
@@ -383,13 +378,5 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   private def BlockStart = rule( &( WS ~ '{' ) )
   private def BlockEnd   = rule( optSemis ~ &( '}' | `case` ) )
 
-  def FlatPackageStat    = rule( `package` ~ QualId ~ !BlockStart )
-  def TopPackageSeq: R0  = rule( repsep(FlatPackageStat, Semis) )
-  def TopStatSeq: R0     = rule( repsep(TopStat, Semis) )
-
-  def CompilationUnit: Rule1[String] = rule(
-    capture(
-      optSemis ~ TopPackageSeq ~ optSemis ~ TopStatSeq ~ optSemis ~ WL
-    )
-  )
+  def CompilationUnit: Rule1[String] = rule( capture( TopPackageSeq ~ TopStatSeq ~ WL ) )
 }
