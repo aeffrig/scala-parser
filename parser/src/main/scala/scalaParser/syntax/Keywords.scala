@@ -17,10 +17,16 @@ trait Keywords {
     def O(s: String) = rule{ WL ~ Key.O(s) }
   }
 
-  def `:`        = rule( K.O(":") )
-  def `*`        = rule( K.O("*") )
-  def `=>`       = rule( K.O("=>") | K.O("⇒") )
-  def `=`        = rule( K.O("=") )
+  def `:`  = rule( K.O(":") )
+  def `*`  = rule( K.O("*") )
+  def `=>` = rule( K.O("=>") | K.O("⇒") )
+  def `=`  = rule( K.O("=") )
+  def `@`  = rule( K.O("@") )
+  def `<-` = rule( K.O("<-") | K.O("←") )
+  def `<%` = rule( K.O("<%") )
+  def `<:` = rule( K.O("<:") )
+  def `>:` = rule( K.O(">:") )
+  def `#`  = rule( K.O("#") )
 
   def `_`         = rule( K.W("_") )
   def `abstract`  = rule( K.W("abstract") )

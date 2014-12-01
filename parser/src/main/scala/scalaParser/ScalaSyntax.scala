@@ -28,11 +28,13 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   implicit private[this] def wspStr(s: String): R0 = rule( WL ~ str(s) )
   implicit private[this] def wspChar(s: Char): R0  = rule( WL ~ ch(s) )
 
+  def Comma        = rule( ',' )
+  def At           = rule( `@` )
   def Colon        = rule( `:` )
-  def LArrow       = rule( K.O("<-") | K.O("←") )
-  def RArrow       = rule( `=>` | K.O("⇒") )
-  def SubType      = rule( K.O("<:") )
-  def SuperType    = rule( K.O(">:") )
+  def LArrow       = rule( `<-` )
+  def RArrow       = rule( `=>` )
+  def SubType      = rule( `<:` )
+  def SuperType    = rule( `>:` )
   def Uscore       = rule( `_` )
   def WildcardStar = rule( `_` ~ `*` )
 
@@ -46,7 +48,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def Id         = rule( WL ~ Identifiers.Id )
   def IdDot      = rule( Id ~ '.' )
   def IdOrUscore = rule( Id | Uscore )
-  def Ids        = rule( rep1sep(Id, ',') )
+  def Ids        = rule( rep1sep(Id, Comma) )
   def Literal    = rule( WL ~ Literals.Literal )
   def NL         = rule( WL ~ Basic.Newline )
   def OptNL      = rule( WS ~ opt(Basic.Newline) )
@@ -72,7 +74,6 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
       Uscore
     | FunctionArgTypes ~ ArrowType
     | InfixType ~ InfixTypeRest
-    // | Uscore
   )
 
   def CompoundType = {
@@ -101,7 +102,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def NotNL: R0         = rule( &( WS ~ !Basic.Newline ) )
   def OneNLMax: R0      = rule( OptNL ~ rep(CommentWS) ~ NotNL )
   def ParamType         = rule( ArrowType | RepeatedType | Type )
-  def ParamTypes        = rule( rep1sep(ParamType, ',') )
+  def ParamTypes        = rule( rep1sep(ParamType, Comma) )
   def ProductType       = rule( '(' ~ Types ~ ')' )
   def RepeatedType      = rule( Type ~ `*` )
   def SimpleType        = rule( ( ProductType | SingletonType | StableId ) ~ TypeSuffix )
@@ -111,7 +112,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def TypePat           = rule( CompoundType )
   def TypeProjection    = rule( '#' ~ Id )
   def TypeSuffix        = rule( rep(TypeArgs | TypeProjection) )
-  def Types             = rule( rep1sep(Type, ',') )
+  def Types             = rule( rep1sep(Type, Comma) )
 
   def EnumeratorsPart = rule(
       '(' ~ NotSensitive.Enumerators ~ ')'
@@ -192,7 +193,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   }
 
   def LambdaHead = rule(
-    (   '(' ~ repsep(Binding, ',') ~ ')'
+    (   '(' ~ repsep(Binding, Comma) ~ ')'
       | opt(`implicit`) ~ Id ~ opt(ColonInfixType)
       | Uscore ~ opt(Ascription)
     ) ~ `=>`
@@ -225,13 +226,13 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     )
   }
 
-  def Patterns: R0 = rule( rep1sep(Pattern, ',') )
+  def Patterns: R0 = rule( rep1sep(Pattern, Comma) )
   def Pattern: R0  = rule( rep1sep(Pattern1, '|') )
   def Pattern1: R0 = rule( Uscore ~ ColonTypePat | VarId ~ ColonTypePat | Pattern2 )
   def Pattern2: R0 = {
     def Pattern3: R0 = rule( WildcardStar | SimplePattern ~ rep(Id ~ SimplePattern) )
     rule(
-        VarId ~ '@' ~ Pattern3
+        VarId ~ At ~ Pattern3
       | Pattern3
       | VarId
     )
@@ -239,7 +240,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
 
   private def AnonTypedPattern = rule( !WildcardStar ~ Uscore ~ opt(ColonTypePat) )
   private def TuplePattern     = rule( '(' ~ opt(ExtractorArgs) ~ ')' )
-  private def ExtractorArgs    = rule( repsep(Pattern, ',') )
+  private def ExtractorArgs    = rule( repsep(Pattern, Comma) )
   private def Extractor        = rule( StableId ~ opt(TuplePattern) )
 
   def SimplePattern: R0 = rule(
@@ -254,8 +255,8 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def AccessModifier      = rule( (`private` | `protected`) ~ opt(AccessQualifier) )
   def AccessQualifier     = rule( '[' ~ (`this` | Id) ~ ']' )
   def AllTypeBounds       = rule( TypeBounds ~ rep(ViewBound) ~ rep(ColonType) )
-  def AnnotatedTypeParams = rule( rep1sep(rep(Annotation) ~ TypeParam, ',') )
-  def Annotation          = rule( '@' ~ !Identifiers.Operator ~ SimpleType ~ rep(ArgumentExprs) )
+  def AnnotatedTypeParams = rule( rep1sep(rep(Annotation) ~ TypeParam, Comma) )
+  def Annotation          = rule( At ~ SimpleType ~ rep(ArgumentExprs) )
   def Annotations         = rule( rep1(Annotation) )
   def BlockExpr: R0       = rule( '{' ~ (CaseClauses | Block) ~ optSemis ~ '}' )
   def CaseBlock           = rule( '{' ~ CaseClauses ~ '}' )
@@ -267,17 +268,17 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def EarlyDefs: R0       = rule( '{' ~ repsep(EarlyDef, Semis) ~ optSemis ~ '}' ~ `with` )
   def Expr                = rule( NotSensitive.Expr )
   def ExprSensitive       = rule( IsSensitive.Expr )
-  def Exprs: R0           = rule( rep1sep(Expr, ',') )
+  def Exprs: R0           = rule( rep1sep(Expr, Comma) )
   def FunSig              = rule( Id ~ opt(FunTypeParamClause) ~ ParamClauses )
   def FunTypeParamClause  = rule( '[' ~ AnnotatedTypeParams ~ ']' )
   def HighBound           = rule( SubType ~ Type )
   def ImplicitParamClause = rule( OneNLMax ~ '(' ~ `implicit` ~ Params ~ ')' )
   def Import              = rule( `import` ~ ImportExprs )
   def ImportExpr          = rule( StableId ~ opt(ImportSuffix) )
-  def ImportExprs         = rule( rep1sep(ImportExpr, ',') )
+  def ImportExprs         = rule( rep1sep(ImportExpr, Comma) )
   def ImportRename        = rule( `=>` ~ IdOrUscore )
   def ImportSelector      = rule( Id ~ opt(ImportRename) )
-  def ImportSelectors     = rule( '{' ~ rep(ImportSelector ~ ',') ~ (ImportSelector | Uscore) ~ '}' )
+  def ImportSelectors     = rule( '{' ~ rep(ImportSelector ~ Comma) ~ (ImportSelector | Uscore) ~ '}' )
   def ImportSuffix        = rule( '.' ~ (Uscore | ImportSelectors) )
   def LocalModifier       = rule( `abstract` | `final` | `sealed` | `implicit` | `lazy` )
   def LowBound            = rule( SuperType ~ Type )
@@ -285,7 +286,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def Param               = rule( rep(Annotation) ~ Id ~ opt(ColonParamType) ~ opt(`=` ~ Expr) )
   def ParamClause         = rule( OneNLMax ~ '(' ~ opt(Params) ~ ')' )
   def ParamClauses        = rule( rep(ParamClause) ~ opt(ImplicitParamClause) )
-  def Params              = rule( repsep(Param, ',') )
+  def Params              = rule( repsep(Param, Comma) )
   def ParenExpr           = rule( '(' ~ Expr ~ ')' )
   def SelfInvocation: R0  = rule( `this` ~ rep1(ArgumentExprs) )
   def TemplateStats       = rule( optSemis ~ repsep(TemplateStat, Semis) ~ optSemis )
@@ -298,8 +299,8 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def VarargsStar         = rule( Colon ~ WildcardStar )
   def VarianceAnnot       = rule( WL ~ anyOf("+-") )
   def VariantTypeParam    = rule( rep(Annotation) ~ opt(VarianceAnnot) ~ TypeParam )
-  def VariantTypeParams   = rule( rep1sep(VariantTypeParam, ',') )
-  def ViewBound           = rule( K.O("<%") ~ Type )
+  def VariantTypeParams   = rule( rep1sep(VariantTypeParam, Comma) )
+  def ViewBound           = rule( `<%` ~ Type )
 
   def optSemi       = rule( opt(Semi) )
   def optSemis      = rule( opt(Semis) )
@@ -329,7 +330,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   )
 
   def PatVarDef: R0 = {
-    def PatDef: R0 = rule( rep1sep(Pattern2, ',') ~ opt(ColonType) ~ `=` ~ ExprSensitive )
+    def PatDef: R0 = rule( rep1sep(Pattern2, Comma) ~ opt(ColonType) ~ `=` ~ ExprSensitive )
     def VarDef: R0 = rule( Ids ~ ColonType ~ `=` ~ Uscore | PatDef )
 
     rule(
@@ -367,12 +368,11 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   )
 
   def TmplDef: R0 = {
-    def ClassParams           = rule( rep1sep(ClassParam, ',') )
+    def ClassParams           = rule( rep1sep(ClassParam, Comma) )
     def ImplicitClause: R0    = rule( OneNLMax ~ '(' ~ `implicit` ~ ClassParams ~ ')' )
     def ClassParamClause: R0  = rule( OneNLMax ~ '(' ~ opt(ClassParams) ~ ')' )
     def ClassParamClauses: R0 = rule( rep1(ClassParamClause) ~ opt(ImplicitClause) | ImplicitClause )
-    def Annot: R0             = rule( '@' ~ SimpleType ~ ArgumentExprs )
-    def ConstrPrelude: R0     = rule( rep1(Annot) ~ opt(AccessModifier) | rep(Annot) ~ AccessModifier )
+    def ConstrPrelude: R0     = rule( Annotations ~ opt(AccessModifier) | opt(Annotations) ~ AccessModifier )
     def ClassDef: R0          = rule( Id ~ opt(TypeParamClause) ~ opt(NotNL ~ ConstrPrelude) ~ opt(ClassParamClauses) ~ ClassTemplateOpt )
 
     rule( TemplateDefIntro ~ ClassDef )
