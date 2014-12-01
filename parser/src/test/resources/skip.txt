@@ -1,7 +1,6 @@
-scalasmt/doc/implicit-parameters.scala
+scala/src/build/InnerObjectTestGen.scala
 scala/src/build/dbuild-meta-json-gen.scala
 scala/src/build/genprod.scala
-scala/src/build/InnerObjectTestGen.scala
 scala/test/files/neg/abstract-class-2.scala
 scala/test/files/neg/abstract-class-error/S.scala
 scala/test/files/neg/abstract-concrete-methods.scala
@@ -352,6 +351,7 @@ scala/test/files/neg/t2773.scala
 scala/test/files/neg/t2775.scala
 scala/test/files/neg/t2779.scala
 scala/test/files/neg/t278.scala
+scala/test/files/neg/t2796.scala
 scala/test/files/neg/t2801.scala
 scala/test/files/neg/t284.scala
 scala/test/files/neg/t2866.scala
@@ -894,3 +894,4 @@ scala/test/files/neg/wellkinded_wrongarity.scala
 scala/test/files/neg/wellkinded_wrongarity2.scala
 scala/test/files/neg/wrong-args-for-none.scala
 scala/test/files/neg/xmltruncated7.scala
+scalasmt/doc/implicit-parameters.scala
