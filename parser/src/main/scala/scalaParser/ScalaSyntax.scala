@@ -28,12 +28,13 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   implicit private[this] def wspStr(s: String): R0 = rule( WL ~ str(s) )
   implicit private[this] def wspChar(s: Char): R0  = rule( WL ~ ch(s) )
 
+  def Colon        = rule( `:` )
   def LArrow       = rule( K.O("<-") | K.O("←") )
   def RArrow       = rule( `=>` | K.O("⇒") )
-  def Uscore       = rule( `_` )
-  def WildcardStar = rule( `_` ~ `*` )
   def SubType      = rule( K.O("<:") )
   def SuperType    = rule( K.O(">:") )
+  def Uscore       = rule( `_` )
+  def WildcardStar = rule( `_` ~ `*` )
 
   /**
    * helper printing function
@@ -44,7 +45,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def DotId      = rule( '.' ~ Id )
   def Id         = rule( WL ~ Identifiers.Id )
   def IdDot      = rule( Id ~ '.' )
-  def IdOrUscore = rule( Id | `_` )
+  def IdOrUscore = rule( Id | Uscore )
   def Ids        = rule( rep1sep(Id, ',') )
   def Literal    = rule( WL ~ Literals.Literal )
   def NL         = rule( WL ~ Basic.Newline )
@@ -71,6 +72,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
       Uscore
     | FunctionArgTypes ~ ArrowType
     | InfixType ~ InfixTypeRest
+    // | Uscore
   )
 
   def CompoundType = {
@@ -85,12 +87,12 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
 
   def AnnotType         = rule( SimpleType ~ opt(NotNL ~ rep1(NotNL ~ Annotation)) )
   def ArrowType         = rule( `=>` ~ Type )
-  def Ascription        = rule( `:` ~ ( WildcardStar | Type | Annotations ) )
+  def Ascription        = rule( Colon ~ ( WildcardStar | Type | Annotations ) )
   def Binding           = rule( IdOrUscore ~ opt(ColonType) )
-  def ColonInfixType    = rule( `:` ~ InfixType )
-  def ColonParamType    = rule( `:` ~ ParamType )
-  def ColonType         = rule( `:` ~ Type )
-  def ColonTypePat      = rule( `:` ~ TypePat )
+  def ColonInfixType    = rule( Colon ~ InfixType )
+  def ColonParamType    = rule( Colon ~ ParamType )
+  def ColonType         = rule( Colon ~ Type )
+  def ColonTypePat      = rule( Colon ~ TypePat )
   def ExistentialClause = rule( `forSome` ~ '{' ~ ExistentialDcls ~ '}' )
   def ExistentialDcl    = rule( `type` ~ TypeDcl | `val` ~ ValDcl )
   def ExistentialDcls   = rule( rep1sep(ExistentialDcl, Semi) )
@@ -163,7 +165,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
       | TypeArgs
       | MaybeNotNL ~ ArgumentExprs
     )
-    def SimpleExpr: R0 = rule( SimpleExprStart ~ rep(SimpleExprPart) ~ opt(MaybeNotNL ~ `_`) )
+    def SimpleExpr: R0 = rule( SimpleExprStart ~ rep(SimpleExprPart) ~ opt(MaybeNotNL ~ Uscore) )
 
     def Path: R0 = rule(
         rep(IdDot) ~ `this` ~ rep(DotId)
@@ -192,7 +194,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def LambdaHead = rule(
     (   '(' ~ repsep(Binding, ',') ~ ')'
       | opt(`implicit`) ~ Id ~ opt(ColonInfixType)
-      | `_` ~ opt(Ascription)
+      | Uscore ~ opt(Ascription)
     ) ~ `=>`
   )
 
@@ -225,9 +227,9 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
 
   def Patterns: R0 = rule( rep1sep(Pattern, ',') )
   def Pattern: R0  = rule( rep1sep(Pattern1, '|') )
-  def Pattern1: R0 = rule( `_` ~ ColonTypePat | VarId ~ ColonTypePat | Pattern2 )
+  def Pattern1: R0 = rule( Uscore ~ ColonTypePat | VarId ~ ColonTypePat | Pattern2 )
   def Pattern2: R0 = {
-    def Pattern3: R0 = rule( `_` ~ '*' | SimplePattern ~ rep(Id ~ SimplePattern) )
+    def Pattern3: R0 = rule( WildcardStar | SimplePattern ~ rep(Id ~ SimplePattern) )
     rule(
         VarId ~ '@' ~ Pattern3
       | Pattern3
@@ -235,7 +237,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     )
   }
 
-  private def AnonTypedPattern = rule( `_` ~ opt(ColonTypePat) ~ !'*' )
+  private def AnonTypedPattern = rule( !WildcardStar ~ Uscore ~ opt(ColonTypePat) )
   private def TuplePattern     = rule( '(' ~ opt(ExtractorArgs) ~ ')' )
   private def ExtractorArgs    = rule( repsep(Pattern, ',') )
   private def Extractor        = rule( StableId ~ opt(TuplePattern) )
@@ -275,8 +277,8 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def ImportExprs         = rule( rep1sep(ImportExpr, ',') )
   def ImportRename        = rule( `=>` ~ IdOrUscore )
   def ImportSelector      = rule( Id ~ opt(ImportRename) )
-  def ImportSelectors     = rule( '{' ~ rep(ImportSelector ~ ',') ~ (ImportSelector | `_`) ~ '}' )
-  def ImportSuffix        = rule( '.' ~ (`_` | ImportSelectors) )
+  def ImportSelectors     = rule( '{' ~ rep(ImportSelector ~ ',') ~ (ImportSelector | Uscore) ~ '}' )
+  def ImportSuffix        = rule( '.' ~ (Uscore | ImportSelectors) )
   def LocalModifier       = rule( `abstract` | `final` | `sealed` | `implicit` | `lazy` )
   def LowBound            = rule( SuperType ~ Type )
   def Modifier            = rule( LocalModifier | AccessModifier | `override` )
@@ -293,7 +295,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def TypeParam: R0       = rule( IdOrUscore ~ opt(TypeParamClause) ~ AllTypeBounds )
   def TypeParamClause     = rule( '[' ~ VariantTypeParams ~ ']' )
   def ValDcl              = rule( Ids ~ ColonType )
-  def VarargsStar         = rule( `:` ~ `_` ~ '*' )
+  def VarargsStar         = rule( Colon ~ WildcardStar )
   def VarianceAnnot       = rule( WL ~ anyOf("+-") )
   def VariantTypeParam    = rule( rep(Annotation) ~ opt(VarianceAnnot) ~ TypeParam )
   def VariantTypeParams   = rule( rep1sep(VariantTypeParam, ',') )
@@ -328,7 +330,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
 
   def PatVarDef: R0 = {
     def PatDef: R0 = rule( rep1sep(Pattern2, ',') ~ opt(ColonType) ~ `=` ~ ExprSensitive )
-    def VarDef: R0 = rule( Ids ~ ColonType ~ `=` ~ `_` | PatDef )
+    def VarDef: R0 = rule( Ids ~ ColonType ~ `=` ~ Uscore | PatDef )
 
     rule(
         `val` ~ PatDef
