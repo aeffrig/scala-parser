@@ -121,7 +121,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
 
   abstract class SensitiveRules(semicolonInference: Boolean) {
     def MaybeOneNewline: R0 = if (semicolonInference) OneNLMax else MATCH
-    def MaybeNotNL: R0 = if (semicolonInference) NotNL else MATCH
+    def MaybeNotNL: R0      = if (semicolonInference) NotNL else MATCH
 
     def AssignExpr = rule( NotSensitive.SimpleExpr ~ `=` ~ Expr )
     def DoExpr     = rule( `do` ~ Expr ~ optSemi ~ `while` ~ ParenExpr )
@@ -145,7 +145,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     def Guard: R0       = rule( `if` ~ PostfixExpr )
     def InfixPart       = rule( MaybeNotNL ~ Id ~ opt(TypeArgs) ~ MaybeOneNewline ~ PrefixExpr )
     def PostfixExpr: R0 = rule( PrefixExpr ~ rep(InfixPart) ~ opt(PostfixPart) )
-    def PostfixPart     = rule( NotNL ~ Id ~ opt(NL) )
+    def PostfixPart     = rule( MaybeNotNL ~ Id ~ opt(NL) )
     def PrefixExpr      = rule( opt(PrefixOpchar) ~ SimpleExpr )
     def PrefixOpchar    = rule( WL ~ anyOf("-+~!") ~ WS ~ !Basic.OperatorChar )
 
