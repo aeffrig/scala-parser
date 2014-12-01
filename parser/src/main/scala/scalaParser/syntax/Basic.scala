@@ -3,6 +3,7 @@ package syntax
 
 import org.parboiled2._
 import CharPredicate.{ HexDigit, AlphaNum, Digit19 }
+import scalaParser.macros.Macros._
 
 trait Basic {
   self: Parser =>
@@ -16,7 +17,6 @@ trait Basic {
     def Digits         = rule( oneOrMore(Digit) )
     def ExponentPart   = rule( anyOf("Ee") ~ optional(anyOf("+-")) ~ oneOrMore(Digit) )
     def FloatType      = rule( anyOf("FfDd") )
-    def OctalEscape    = rule( "\\0" ~ zeroOrMore(Digit) )
     def HexNumeral     = rule( "0x" ~ oneOrMore(HexDigit) )
     def IntegerNumeral = rule( Digit19 ~ zeroOrMore(Digit) | "0" ~ !Digit )
     def Letter         = rule( Upper | Lower | IsAlpha )
@@ -24,6 +24,7 @@ trait Basic {
     def Lower          = rule( "a" - "z" | "$" | "_" | IsLower )
     def Newline        = rule( "\r\n" | "\n" )
     def NewlineOrEnd   = rule( Newline | EOI )
+    def OctalEscape    = rule( "\\" ~ Digit ~ opt(Digit) ~ opt(Digit) )
     def OperatorChar   = rule( anyOf("\\!#$%&*+-/:<=>?@^|~") | isOperator )
     def Parentheses    = rule( anyOf("()[]{}") )
     def PrintableChar  = CharPredicate from isPrintableChar

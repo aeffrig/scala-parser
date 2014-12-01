@@ -46,12 +46,21 @@ object SyntaxTest {
       case s                           => "..." + (s takeRight maxFileLen - 3)
     }
     val isNeg  = segments("neg")
+    def hasNakedUnicode = input.lines filterNot (_ containsChar '"') exists (_ contains "\\" + "u")
     val isSkip = (
          (input startsWith "#!")
+      || hasNakedUnicode // XXX
       || (skipPaths exists fs.endsWith)
+      || (fs contains "scala/src/build/")
       || segments("disabled")
       || segments("pending")
       || segments("script")
+      || segments("target")
+      || segments("html")
+      || segments("resources")
+      || segments("presentation")
+      || segments("positions")
+      || segments("scriptit")
     )
     val fmt    = s"[%6s] $maxFileFmt  "
     print((s"[%6s] $maxFileFmt  ").format(input.length, path_s))

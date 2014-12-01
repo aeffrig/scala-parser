@@ -17,3 +17,5 @@ val parser = project dependsOn macros settings (common: _*) settings (
 )
 
 run in Test <<= run in Test in parser
+
+run <<= run in Compile in parser

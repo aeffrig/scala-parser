@@ -261,7 +261,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def CaseClauses: R0     = rule( rep1(CaseClause) )
   def ClassParam          = rule( rep(Annotation) ~ opt(rep(Modifier) ~ ValOrVar) ~ Id ~ ColonParamType ~ opt(`=` ~ Expr) )
   def ConstrBlock: R0     = rule( '{' ~ SelfInvocation ~ opt(Semis ~ BlockStats) ~ optSemis ~ '}' )
-  def EarlyDef: R0        = rule( rep(Annotation ~ OneNLMax) ~ rep(Modifier) ~ PatVarDef )
+  def EarlyDef: R0        = rule( rep(Annotation ~ OneNLMax) ~ rep(Modifier) ~ (PatVarDef | `type` ~ TypeDef) )
   def EarlyDefs: R0       = rule( '{' ~ repsep(EarlyDef, Semis) ~ optSemis ~ '}' ~ `with` )
   def Expr                = rule( NotSensitive.Expr )
   def ExprSensitive       = rule( IsSensitive.Expr )
