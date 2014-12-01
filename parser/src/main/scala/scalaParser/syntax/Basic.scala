@@ -49,20 +49,4 @@ trait Basic {
 
     private val OperatorTypes = Set[Int](Character.OTHER_SYMBOL, Character.MATH_SYMBOL)
   }
-
-  /**
-   * Most keywords don't just require the correct characters to match,
-   * they have to ensure that subsequent characters *don't* match in
-   * order for it to be a keyword. This enforces that rule for key-words
-   * (W) and key-operators (O) which have different non-match criteria.
-   */
-  object Key {
-    def W(s: String) = rule {
-      str(s) ~ !Basic.AlphaNum
-    }
-
-    def O(s: String) = rule {
-      str(s) ~ !Basic.OperatorChar
-    }
-  }
 }

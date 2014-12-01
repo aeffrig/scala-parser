@@ -1,4 +1,3 @@
-thyme/extra/ScalaDays2013/TurtleBench.scala
 scala/src/build/InnerObjectTestGen.scala
 scala/src/build/dbuild-meta-json-gen.scala
 scala/src/build/genprod.scala
@@ -753,6 +752,7 @@ scala/test/files/neg/t7721.scala
 scala/test/files/neg/t7752.scala
 scala/test/files/neg/t7756a.scala
 scala/test/files/neg/t7756b.scala
+scala/test/files/neg/t7757a.scala
 scala/test/files/neg/t7783.scala
 scala/test/files/neg/t779.scala
 scala/test/files/neg/t783.scala
@@ -896,3 +896,4 @@ scala/test/files/neg/wellkinded_wrongarity2.scala
 scala/test/files/neg/wrong-args-for-none.scala
 scala/test/files/neg/xmltruncated7.scala
 scalasmt/doc/implicit-parameters.scala
+thyme/extra/ScalaDays2013/TurtleBench.scala
