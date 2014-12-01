@@ -30,7 +30,7 @@ trait Literals {
     def SingleLineComment    = rule( "//" ~ RestOfLine )
 
     def BooleanLiteral     = rule( `true` | `false` )
-    def CharLiteralChars   = rule( UnicodeEscape | EscapedChar | !'\\' ~ PrintableChar )
+    def CharLiteralChars   = rule( UnicodeEscape | OctalEscape | EscapedChar | !'\\' ~ PrintableChar )
     def CharacterLiteral   = rule( ''' ~ CharLiteralChars ~ ''' )
     def EscapedChar        = rule( '\\' ~ anyOf(Escapable) )
     def HexLiteral         = rule( HexNumeral ~ optLong )

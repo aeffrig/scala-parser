@@ -16,6 +16,7 @@ trait Basic {
     def Digits         = rule( oneOrMore(Digit) )
     def ExponentPart   = rule( anyOf("Ee") ~ optional(anyOf("+-")) ~ oneOrMore(Digit) )
     def FloatType      = rule( anyOf("FfDd") )
+    def OctalEscape    = rule( "\\0" ~ zeroOrMore(Digit) )
     def HexNumeral     = rule( "0x" ~ oneOrMore(HexDigit) )
     def IntegerNumeral = rule( Digit19 ~ zeroOrMore(Digit) | "0" ~ !Digit )
     def Letter         = rule( Upper | Lower | IsAlpha )
