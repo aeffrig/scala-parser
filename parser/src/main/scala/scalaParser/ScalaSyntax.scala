@@ -51,7 +51,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def OptNL      = rule( WS ~ opt(Basic.Newline) )
   def QualId     = rule( WL ~ rep1sep(Id, '.') )
   def Semi       = rule( WS ~ Basic.Semi )
-  def Semis      = rule( Semi+ )
+  def Semis      = rule( rep1(Semi) )
   def SpaceWS    = rule( rep(Basic.WhitespaceChar) )
   def VarId      = rule( WL ~ Identifiers.VarId )
 
@@ -83,7 +83,7 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
     )
   }
 
-  def AnnotType         = rule( SimpleType ~ opt(NotNL ~ oneOrMore(NotNL ~ Annotation)) )
+  def AnnotType         = rule( SimpleType ~ opt(NotNL ~ rep1(NotNL ~ Annotation)) )
   def ArrowType         = rule( `=>` ~ Type )
   def Ascription        = rule( `:` ~ ( WildcardStar | Type | Annotations ) )
   def Binding           = rule( IdOrUscore ~ opt(ColonType) )
@@ -251,11 +251,11 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
   def AllTypeBounds       = rule( TypeBounds ~ rep(ViewBound) ~ rep(ColonType) )
   def AnnotatedTypeParams = rule( rep1sep(rep(Annotation) ~ TypeParam, ',') )
   def Annotation          = rule( '@' ~ !Identifiers.Operator ~ SimpleType ~ rep(ArgumentExprs) )
-  def Annotations         = rule( Annotation+ )
+  def Annotations         = rule( rep1(Annotation) )
   def BlockExpr: R0       = rule( '{' ~ (CaseClauses | Block) ~ optSemis ~ '}' )
   def CaseBlock           = rule( '{' ~ CaseClauses ~ '}' )
   def CaseClause: R0      = rule( `case` ~ Pattern ~ opt(NotSensitive.Guard) ~ `=>` ~ Block )
-  def CaseClauses: R0     = rule( CaseClause+ )
+  def CaseClauses: R0     = rule( rep1(CaseClause) )
   def ClassParam          = rule( rep(Annotation) ~ opt(rep(Modifier) ~ ValOrVar) ~ Id ~ ColonParamType ~ opt(`=` ~ Expr) )
   def ConstrBlock: R0     = rule( '{' ~ SelfInvocation ~ opt(Semis ~ BlockStats) ~ optSemis ~ '}' )
   def EarlyDef: R0        = rule( rep(Annotation ~ OneNLMax) ~ rep(Modifier) ~ PatVarDef )

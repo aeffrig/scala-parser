@@ -12,6 +12,8 @@ val macros = project settings (common: _*) settings (
 )
 
 val parser = project dependsOn macros settings (common: _*) settings (
-  name := "scalaParser",
+  name := "scala-parser",
   test := (run in Test toTask "").value
 )
+
+run in Test <<= run in Test in parser

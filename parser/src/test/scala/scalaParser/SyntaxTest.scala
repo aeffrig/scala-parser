@@ -31,26 +31,10 @@ object SyntaxTest {
     println(f.formatTraces)
   }
 
-  def checkNeg[T](input: String) = {
-    new ScalaSyntax(input).CompilationUnit.run() match {
-      case Failure(f: ParseError) => () // yay
-      case Failure(f)             => runtimeException(s"Unexpected failure: $f")
-      case Success(parsed)        => assert(parsed != input, parsed)
-    }
-  }
-
   def snippet(input: String, parsed: String): String = {
     val offset = parsed.length
-    Seq(input take offset, s"[$offset]".red.to_s, input drop offset) mkString ""
-  }
-
-  def check[T](input: String) = {
-    new ScalaSyntax(input).CompilationUnit.run() match{
-      case Success(`input`)       => ()
-      case Success(parsed)        => runtimeException(snippet(input, parsed))
-      case Failure(f: ParseError) => runtimeException("" + f.position) // + "\t" + f.formatTraces)
-      case Failure(f)             => runtimeException(s"Unexpected failure: $f")
-    }
+    val aug = Predef.augmentString(input)
+    aug.slice(offset - 50, offset) + s"[$offset]".red.to_s + aug.slice(offset, offset + 50)
   }
 
   def checkPath(root: Path, f: Path): Result = {
@@ -77,18 +61,17 @@ object SyntaxTest {
       Skip
     }
     else {
-      val result = Try(check(input))
+      val parser = new ScalaSyntax(input)
+      val result = parser.CompilationUnit.run()
       val passed = result match {
-        case Success(_) => !isNeg
-        case Failure(_) => isNeg
+        case Success(`input`) => !isNeg
+        case _                => isNeg
       }
-      println(
-        if (passed) "ok".green.to_s
-        else result match {
-          case Success(_) => "failed".red.to_s + " (expected failure)"
-          case Failure(t) => "failed".red.to_s //+ " (at %s)".format(t.getMessage)
-        }
-      )
+      println( if (passed) "ok".green.to_s else "failed".red.to_s )
+      if (!passed) result match {
+        case Success(partial) => println("Partial parse: %s/%s chars".format(partial.length, input.length)) ; println(snippet(input, partial))
+        case _                =>
+      }
       if (passed) Pass else Fail
     }
   }
