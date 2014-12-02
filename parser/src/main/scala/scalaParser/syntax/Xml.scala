@@ -74,24 +74,37 @@ trait Xml {
       "'" ~ rep(CharA | Reference) ~ "'" |
       ScalaExpr
     )
-
     def NameStartChar = rule(
-      ":" | ("A"-"Z") | "_" | ("a"-"z") | ("\u00C0"-"\u00D6") | ("\u00D8"-"\u00F6") |
-      ("\u00F8"-"\u02FF") | ("\u0370"-"\u037D") | ("\u037F"-"\u1FFF") | ("\u200C"-"\u200D") |
-      ("\u2070"-"\u218F") | ("\u2C00"-"\u2FEF") | ("\u3001"-"\uD7FF") | ("\uF900"-"\uFDCF") |
-      ("\uFDF0"-"\uFFFD")
-    ) // | [#x10000-#xEFFFF] ???? don't chars max out at \uffff ????
+        ":"
+      | "_"
+      | ("A"-"Z")
+      | ("a"-"z")
+      | ("\u00C0"-"\u00D6")
+      | ("\u00D8"-"\u00F6")
+      | ("\u00F8"-"\u02FF")
+      | ("\u0370"-"\u037D")
+      | ("\u037F"-"\u1FFF")
+      | ("\u200C"-"\u200D")
+      | ("\u2070"-"\u218F")
+      | ("\u2C00"-"\u2FEF")
+      | ("\u3001"-"\uD7FF")
+      | ("\uF900"-"\uFDCF")
+      | ("\uFDF0"-"\uFFFD")
+      // | [#x10000-#xEFFFF] ???? don't chars max out at \uffff ????
+    )
 
     def CDBegin      = rule( "<![CDATA[" )
     def CDEnd        = rule( "]]>" )
+    def CharRefBegin = rule( "&#" )
+    def CharRefEnd   = rule( ";" )
     def CommentBegin = rule( "<!--" )
     def CommentEnd   = rule( "-->" )
+    def ETagBegin    = rule( "</" )
+    def ETagEnd      = rule( ">" )
     def PIBegin      = rule( "<?" ) // PI = Processing Instruction
     def PIEnd        = rule( "?>" )
     def TagBegin     = rule( "<" ~ Name )
     def TagEnd       = rule( "/>" )
-    def ETagBegin    = rule( "</" )
-    def ETagEnd      = rule( ">" )
 
     def Attribute          = rule( Name ~ Eq ~ AttValue )
     def Attributes         = rule( rep(WL ~ Attribute) ~ opt(WL) )
@@ -100,15 +113,14 @@ trait Xml {
     def Char               = rule( ANY )
     def Char1              = rule( &(noneOf("<&")) ~ Char )
     def CharA              = rule( !"'" ~ Char1 )
-    def CharB              = rule( !'{' ~ Char1 )
     def CharData           = rule( rep1(!("{" | CDEnd | CharRef) ~ Char1 | "{{") )
     def CharQ              = rule( !'"' ~ Char1 )
-    def CharRef            = rule( "&#" ~ Digits ~ ';' | "&#x" ~ Basic.HexNumeral ~ ';' )
+    def CharRefContent     = rule( "x" ~ Basic.HexNumeral | Digits )
+    def CharRef            = rule( CharRefBegin ~ CharRefContent ~ CharRefEnd )
     def Comment            = rule( CommentBegin ~ CommentChars ~ CommentEnd )
     def CommentChar        = rule( !'-' ~ Char )
     def CommentChars       = rule( rep(CommentChar | ('-' ~ CommentChar)) )
-    def Content            = rule( rep(CharData | Content1) )
-    def Content1           = rule( XmlContent | Reference | ScalaExpr )
+    def Content            = rule( rep(CharData | XmlContent | Reference | ScalaExpr) )
     def ContentP           = rule( opt(CharData) ~ rep((ElemPattern | ScalaPatterns) ~ opt(CharData)) )
     def ETag               = rule( ETagBegin ~ Name ~ opt(WL) ~ ETagEnd )
     def ElemPattern: Rule0 = rule( EmptyElemTagP | STagP ~ ContentP ~ ETag )
@@ -122,8 +134,8 @@ trait Xml {
     def PI                 = rule( PIBegin ~ PITarget ~ opt(WL ~ rep(!PIEnd ~ Char)) ~ PIEnd )
     def PITarget           = rule( !ignoreCase("xml") ~ Name )
     def Reference          = rule( EntityRef | CharRef )
-    def STag               = rule( '<' ~ Name ~ Attributes ~ '>' )
-    def STagP              = rule( '<' ~ Name ~ opt(WL) ~ '>' )
+    def STag               = rule( TagBegin ~ Attributes ~ '>' )
+    def STagP              = rule( TagBegin ~ opt(WL) ~ '>' )
     def ScalaExpr          = rule( '{' ~ WS ~ Block ~ WS ~ '}' )
     def ScalaPatterns      = rule( '{' ~ Patterns ~ WL ~ '}' )
     def XNameStart         = rule( '_' | BaseChar | Ideographic )
