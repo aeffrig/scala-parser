@@ -6,7 +6,7 @@ import org.parboiled2._
 import scalaParser.macros.Macros._
 
 trait Xml {
-  self: ScalaSyntax =>
+  self: PspParser =>
 
   def Patterns: Rule0
 

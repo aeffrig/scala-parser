@@ -4,10 +4,7 @@ import syntax._
 import org.parboiled2._
 import scalaParser.macros.Macros._
 
-/**
- * Parser for Scala syntax.
- */
-class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identifiers with Literals with Keywords with Xml {
+abstract class PspParser extends Parser with Basic with Identifiers with Literals {
   /**
    * Parses all whitespace, excluding newlines. This is only
    * really useful in e.g. {} blocks, where we want to avoid
@@ -20,6 +17,9 @@ class ScalaSyntax(val input: ParserInput) extends Parser with Basic with Identif
    * This is the default for most things
    */
   def WL = rule( rep(Basic.WhitespaceChar | Literals.Comment | Basic.Newline) )
+}
+
+class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with Xml {
 
   /**
    * By default, all strings and characters greedily

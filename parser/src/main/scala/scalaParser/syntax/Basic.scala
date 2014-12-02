@@ -6,9 +6,10 @@ import CharPredicate.{ HexDigit, AlphaNum, Digit19 }
 import scalaParser.macros.Macros._
 
 trait Basic {
-  self: Parser =>
+  self: PspParser =>
 
-  type R0 = Rule0
+  type R0    = Rule0
+  type R1[T] = Rule1[T]
 
   object Basic {
     def AlphaNum       = rule( Letter | Digit )

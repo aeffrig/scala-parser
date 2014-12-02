@@ -4,7 +4,7 @@ package syntax
 import org.parboiled2._
 
 trait Keywords {
-  self: Parser with Basic with Identifiers with Literals =>
+  self: PspParser =>
 
   /**
    *  Most keywords don't just require the correct characters to match,

@@ -1,3 +1,4 @@
+playframework/framework/src/play-functional/src/main/scala/play/api/libs/functional/Products.scala
 scala/src/build/InnerObjectTestGen.scala
 scala/src/build/dbuild-meta-json-gen.scala
 scala/src/build/genprod.scala

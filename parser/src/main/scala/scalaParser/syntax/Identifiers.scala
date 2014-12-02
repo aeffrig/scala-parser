@@ -3,9 +3,10 @@ package syntax
 
 import org.parboiled2._
 import psp.std._, api._
+import macros.Macros._
 
 trait Identifiers {
-  self: Parser with Basic =>
+  self: PspParser =>
 
   object Identifiers {
     import Basic._
@@ -13,18 +14,18 @@ trait Identifiers {
     def VarId          = EncodedVarId
     def PlainId        = EncodedPlainId
 
-    def Operator       = rule( !Keywords ~ oneOrMore(OperatorChar) )
+    def Operator       = rule( !Keywords ~ rep1(OperatorChar) )
     def EncodedVarId   = rule( !Keywords ~ Lower ~ EncodedIdRest )
     def RawVarId       = rule( !Keywords ~ Lower ~ RawIdRest )
     def EncodedPlainId = rule( !Keywords ~ Upper ~ EncodedIdRest | EncodedVarId | Operator )
     def RawPlainId     = rule( !Keywords ~ Upper ~ RawIdRest | RawVarId | Operator )
     def Id             = rule( !Keywords ~ EncodedPlainId | BacktickedId )
     def IdOrKeyword    = rule( PlainId | Keywords )
-    def BacktickedId   = rule( "`" ~ oneOrMore(noneOf("`")) ~ "`" )
+    def BacktickedId   = rule( "`" ~ rep1(noneOf("`")) ~ "`" )
 
-    private def EncodedIdRest  = rule( zeroOrMore(zeroOrMore("_") ~ oneOrMore(!"_" ~ AlphaNum)) ~ UnderscorePart )
-    private def RawIdRest      = rule( zeroOrMore(zeroOrMore("_") ~ oneOrMore(!anyOf("_$") ~ AlphaNum)) ~ UnderscorePart )
-    private def UnderscorePart = rule( optional(oneOrMore("_") ~ zeroOrMore(OperatorChar)) )
+    private def EncodedIdRest  = rule( rep(rep("_") ~ rep1(!"_" ~ AlphaNum)) ~ UnderscorePart )
+    private def RawIdRest      = rule( rep(rep("_") ~ rep1(!anyOf("_$") ~ AlphaNum)) ~ UnderscorePart )
+    private def UnderscorePart = rule( optional(rep1("_") ~ rep(OperatorChar)) )
 
     def AlphabetKeywords = rule {
       (
