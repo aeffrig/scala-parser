@@ -3,6 +3,7 @@ package scalaParser
 import syntax._
 import org.parboiled2._
 import scalaParser.macros.Macros._
+import psp.std.ansi._
 
 abstract class PspParser extends Parser with Basic with Identifiers with Literals {
   /**
@@ -220,7 +221,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
 
   def Pattern        = rule( rep1sep(Pattern1, Pipe) )
   def Pattern1: R0   = rule( Uscore ~ Colon ~ TypePat | VarId ~ Colon ~ TypePat | Pattern2 )
-  def Pattern2       = rule( VarId ~ At ~ Pattern3 | Pattern3 | VarId )
+  def Pattern2       = rule( VarIdOrUscore ~ At ~ Pattern3 | Pattern3 | VarId )
   def Pattern3       = rule( WildcardStar | rep1sep(SimplePattern, Id) )
   def ExtractorArgs  = rule( repsep(Pattern, Comma) )
   def Extractor      = rule( StableId ~ opt(TuplePattern) )
@@ -329,7 +330,28 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def RefinementStatSeq = rule( optSemis ~ repsep(RefinementStat, Semis) ~ optSemis )
   def CompUnit          = rule( TopPackageSeq ~ TopStatSeq ~ WL )
 
-  def CompilationUnit: Rule1[String] = rule( capture(CompUnit) )
+  def CompilationUnit: Rule1[String] = rule( capture(CompUnit) ~ EOI )
+
+  def errorContextWidth: Int            = 1
+  def errorCharMarkup(ch: Char): String = {
+    import scala.Console._
+    RED + BOLD + REVERSED + ch + RESET
+  }
+
+  override def errorTraceCollectionLimit = 6
+  override def formatErrorProblem(error: ParseError): String = "Error"
+  override def formatErrorLine(error: ParseError): String = {
+    import error._, position._
+    def line_s(i: Int): Option[String] = scala.util.Try(
+      "%4d  %s".format(i,
+        if (i != line) input getLine i
+        else input getLine i splitAt column match { case (front, back) =>
+          "" + (front dropRight 1) + errorCharMarkup(front.last) + back
+        }
+      )
+    ).toOption
+    (line - errorContextWidth) to (line + errorContextWidth) flatMap line_s mkString "\n"
+  }
 
   def EarlyableDef = rule(
       `var` ~ NamesAndType ~ Equals ~ Uscore

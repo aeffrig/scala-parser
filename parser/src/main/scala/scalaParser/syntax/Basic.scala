@@ -26,7 +26,7 @@ trait Basic {
     def Newline        = rule( "\r\n" | "\n" )
     def NewlineOrEnd   = rule( Newline | EOI )
     def OctalEscape    = rule( "\\" ~ Digit ~ opt(Digit) ~ opt(Digit) )
-    def OperatorChar   = rule( anyOf("\\!#$%&*+-/:<=>?@^|~") | isOperator )
+    def OperatorChar   = rule( '/' ~ !'/' | anyOf("\\!#$%&*+-:<=>?@^|~") | !'/' ~ isOperator )
     def Parentheses    = rule( anyOf("()[]{}") )
     def PrintableChar  = CharPredicate from isPrintableChar
     def RestOfLine     = rule( zeroOrMore(!Newline ~ ANY) ~ &(NewlineOrEnd) )
