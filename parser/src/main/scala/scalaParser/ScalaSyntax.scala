@@ -301,11 +301,13 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     | IdOrUscore ~ OptInfixType ~ RArrow
   )
 
+  def EmptyParens      = rule( '(' ~ ')' )
+  def ClassParams      = rule( repsep(ClassParam, Comma) )
+  def ClassParams1     = rule( rep1sep(ClassParam, Comma) )
+  def ClassParamClause = rule( OneNLMax ~ '(' ~ ( `implicit` ~ ClassParams1 | ClassParams ) ~ ')' )
+
   def BlockBody            = rule( OneNLMax ~ '{' ~ Block ~ '}' )
-  def ClassDef             = rule( Id ~ TypeParamClauses ~ opt(NotNL ~ ConstrPrelude) ~ opt(ClassParamClauses) ~ ClassTemplateOpt )
-  def ClassParamClause     = rule( OneNLMax ~ '(' ~ opt(ClassParams) ~ ')' )
-  def ClassParamClauses    = rule( rep1(ClassParamClause) ~ opt(ImplicitClause) | ImplicitClause )
-  def ClassParams          = rule( rep1sep(ClassParam, Comma) )
+  def ClassDef             = rule( Id ~ TypeParamClauses ~ opt(NotNL ~ ConstrPrelude) ~ rep(ClassParamClause) ~ ClassTemplateOpt )
   def ClassTemplate        = rule( opt(EarlyDefs) ~ Parents ~ opt(TemplateBody) )
   def ClassTemplateOrBody  = rule( ClassTemplate | TemplateBody )
   def ConstrPrelude        = rule( Annotations1 ~ opt(AccessModifier) | Annotations ~ AccessModifier )
@@ -315,7 +317,6 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def EarlyDefs            = rule( '{' ~ repsep(EarlyDef, Semis) ~ optSemis ~ '}' ~ `with` )
   def FlatPackageStat      = rule( Package ~ QualId ~ !BlockStart )
   def FunSig               = rule( Id ~ opt(FunTypeParamClause) ~ ParamClauses )
-  def ImplicitClause       = rule( OneNLMax ~ '(' ~ `implicit` ~ ClassParams ~ ')' )
   def NamesAndType         = rule( rep1sep(Id, Comma) ~ Colon ~ Type )
   def NewExpr              = rule( `new` ~ ClassTemplateOrBody )
   def ObjectDef            = rule( Id ~ ClassTemplateOpt )
@@ -324,11 +325,14 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def TemplateBody         = rule( '{' ~ opt(SelfType) ~ TemplateStatSeq ~ '}' )
   def TmplDef              = rule( TemplateDefIntro ~ ClassDef )
 
-  def BlockStatSeq      = rule( optSemis ~ repsep(BlockStat, Semis) ~ optSemis )
-  def TopPackageSeq     = rule( optSemis ~ repsep(FlatPackageStat, Semis) ~ optSemis )
-  def TemplateStatSeq   = rule( optSemis ~ repsep(TemplateStat, Semis) ~ optSemis )
-  def TopStatSeq        = rule( optSemis ~ repsep(TopStat, Semis) ~ optSemis )
-  def RefinementStatSeq = rule( optSemis ~ repsep(RefinementStat, Semis) ~ optSemis )
+  def semiSeparated(stat: => R0): R0 = rule( optSemis ~ repsep(stat, Semis) ~ optSemis )
+
+  def BlockStatSeq      = semiSeparated(BlockStat)
+  def TopPackageSeq     = semiSeparated(FlatPackageStat)
+  def TemplateStatSeq   = semiSeparated(TemplateStat)
+  def TopStatSeq        = semiSeparated(TopStat)
+  def RefinementStatSeq = semiSeparated(RefinementStat)
+
   def CompUnit          = rule( TopPackageSeq ~ TopStatSeq ~ WL )
 
   def CompilationUnit: Rule1[String] = rule( capture(CompUnit) ~ EOI )
