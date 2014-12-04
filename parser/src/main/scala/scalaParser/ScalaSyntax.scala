@@ -51,47 +51,28 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def pr(s: String) = rule { run(println(s"LOGGING $cursor: $s")) }
 
   def CommentWS        = rule( SpaceWS ~ Literals.Comment ~ SpaceWS ~ Basic.Newline )
-  def DotId            = rule( Dot ~ Id )
   def Id               = rule( WL ~ Identifiers.Id )
-  def IdOrThis         = rule( Id | `this` )
   def IdDot            = rule( Id ~ Dot )
+  def IdOrThis         = rule( Id | `this` )
+  def IdOrThisOrSuper  = rule( Id | `this` | `super` )
   def IdOrUscore       = rule( Id | Uscore )
   def IdOrUscoreOrThis = rule( Id | Uscore | `this` )
   def Literal          = rule( WL ~ Literals.Literal )
   def NL               = rule( WL ~ Basic.Newline )
   def OptNL            = rule( WS ~ opt(Basic.Newline) )
   def QualId           = rule( WL ~ rep1sep(Id, Dot) )
+  def QualSuper        = rule( `super` ~ opt(Qualifier) )
   def Semi             = rule( WS ~ Basic.Semi )
   def Semis            = rule( rep1(Semi) )
   def SpaceWS          = rule( rep(Basic.WhitespaceChar) )
+  def ThisOrSuper      = rule(`this` | QualSuper )
   def VarId            = rule( WL ~ Identifiers.VarId )
   def VarIdOrUscore    = rule( VarId | Uscore )
 
-  def ThisOrSuper = rule(
-      `this`
-    | `super` ~ opt(ClassQualifier)
-  )
+  def Qualifier    = rule( '[' ~ IdOrThis ~ ']' )
+  def StableId: R0 = rule( rep1sep(IdOrThisOrSuper, Dot) )
 
-  def ClassQualifier = rule( '[' ~ Id ~ ']' )
-  def StableId: R0 = rule(
-      rep(IdDot) ~ ThisOrSuper ~ rep(DotId)
-    | rep1sep(Id, Dot)
-  )
-
-  // private def TypeStart = rule(
-  //     Uscore
-  //   | FunctionType
-  //   | ArrowsType ~ opt(ExistentialClause)
-  // )
-  // def Type: R0 = rule(
-  //     RArrow ~ Type
-  //   | Uscore ~ TypeEnd
-  //   | FunctionType ~ TypeEnd
-  //   | rep1sep(InfixType, RArrow) ~ TypeEnd
-  // )
-
-  def Type: R0   = rule( TypeStart ~ TypeMiddle ~ TypeEnd )
-  def TypeStart  = rule( opt(RArrow) )
+  def Type: R0   = rule( opt(RArrow) ~ TypeMiddle ~ TypeEnd )
   def TypeMiddle = rule( rep1sep(WildcardType | InfixType, RArrow) )
   def TypeEnd    = rule( TypeBounds ~ opt(ExistentialClause) ~ opt(Star) )
 
@@ -166,21 +147,17 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
       | NewExpr
       | BlockExpr
       | Literal
-      | Path
+      | StableId
       | Uscore
       | TupleExpr
     )
     def SimpleExprPart = rule(
-        DotId
+        Dot ~ Id
       | TypeArgs
       | MaybeNotNL ~ ArgumentExprs
     )
     def SimpleExpr: R0 = rule( SimpleExprStart ~ rep(SimpleExprPart) ~ opt(MaybeNotNL ~ Uscore) )
 
-    def Path: R0 = rule(
-        rep(IdDot) ~ `this` ~ rep(DotId)
-      | StableId
-    )
     def Enumerator: R0 = rule(
         Generator
       | Guard
@@ -213,10 +190,9 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     | OneNLMax ~ BlockExpr
   )
 
-  def BlockStats: R0 = rule( rep1sep(BlockStat, Semis) )
   def BlockStat: R0  = rule(
       Import
-    | Annotations ~ rep(LocalModifier) ~ Def
+    | AnnotationsAndMods ~ Def
     | ExprSensitive
   )
 
@@ -226,8 +202,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     rule(
       rep(LambdaHead) ~ optSemis ~ (
           ResultExpr ~ BlockEnd
-        | BlockStats ~ opt(Semis ~ ResultExpr) ~ BlockEnd
-        | MATCH ~ BlockEnd
+        | repsep(BlockStat, Semis) ~ opt(Semis ~ ResultExpr) ~ BlockEnd
       )
     )
   }
@@ -277,8 +252,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def CaseBlock          = rule( '{' ~ CaseClauses ~ '}' )
   def CaseClause: R0     = rule( `case` ~ Pattern ~ opt(NotSensitive.Guard) ~ RArrow ~ Block )
   def CaseClauses: R0    = rule( rep1(CaseClause) )
-  def AccessModifier     = rule( (`private` | `protected`) ~ opt(AccessQualifier) )
-  def AccessQualifier    = rule( '[' ~ (`this` | Id) ~ ']' )
+  def AccessModifier     = rule( (`private` | `protected`) ~ opt(Qualifier) )
   def Annotation         = rule( At ~ SimpleType ~ rep(ArgumentExprs) )
   def AnnotationsAndMods = rule( rep(Annotation ~ OneNLMax) ~ Modifiers )
   def Annotations        = rule( rep(Annotation) )
