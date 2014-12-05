@@ -75,7 +75,8 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def StableId: R0 = rule( rep1sep(IdOrThisOrSuper, Dot) )
 
   def InfixType: R0    = rule( rep1sep(CompoundType, NotNL ~ Id ~ OneNLMax) )
-  def CompoundType     = oneOrBoth(IntersectionType, rule( OneNLMax ~ inBraces(Unmodified.RefinementDcl) ) )
+  def Refinement       = inBraces(() => Unmodified.RefinementDcl)
+  def CompoundType     = oneOrBoth(IntersectionType, rule(OneNLMax ~ Refinement) )
   def IntersectionType = rule( rep1sep(ParentType, `with`) )
   def ParentType       = rule( AnnotType ~ rep(NotNL ~ ArgumentExprs) )
   def AnnotType        = rule( SimpleType ~ rep(NotNL ~ Annotation) )
@@ -85,10 +86,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
 
   def ValueAnnotations  = rule( rep1(Annotation) )  // e.g. (x: @switch) match { ... }
   def Ascription        = rule( Colon ~ ( WildcardStar | Type | ValueAnnotations ) )
-  def Binding           = rule( IdOrUscore ~ OptType )
-  def Bindings          = rule( repsep(Binding, Comma) )
-  def Bindings1         = rule( rep1sep(Binding, Comma) )
-  def ExistentialClause = rule( `forSome` ~ inBraces(Unmodified.Dcl) )
+  def ExistentialClause = rule( `forSome` ~ inBraces(() => Unmodified.Dcl) )
   def NotNL: R0         = rule( &( WS ~ !Basic.Newline ) )
   def OneNLMax: R0      = rule( OptNL ~ rep(CommentWS) ~ NotNL )
   def ProductType       = rule( '(' ~ rep1sep(ParamType, Comma) ~ ')' )
@@ -113,18 +111,17 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     def DoExpr     = rule( `do` ~ Expr ~ optSemi ~ `while` ~ ParenExpr )
     def ForExpr    = rule( `for` ~ EnumeratorsPart ~ opt(`yield`) ~ Expr )
     def IfExpr     = rule( `if` ~ ParenExpr ~ Expr ~ opt(optSemi ~ ElsePart) )
-    def MatchExpr  = rule( PostfixExpr ~ `match` ~ CaseBlock )
     def ReturnExpr = rule( `return` ~ opt(Expr) )
     def ThrowExpr  = rule( `throw` ~ Expr )
     def TryExpr    = rule( TryPart ~ opt(CatchPart) ~ opt(FinPart) )
     def TupleExpr  = rule( '(' ~ opt(Exprs) ~ ')' )
-    def TypedExpr  = rule( PostfixExpr ~ Ascription )
     def WhileExpr  = rule( `while` ~ ParenExpr ~ Expr )
 
     def TryPart   = rule( `try` ~ Expr )
     def CatchPart = rule( `catch` ~ Expr )
     def FinPart   = rule( `finally` ~ Expr )
     def ElsePart  = rule( `else` ~ Expr )
+    def MatchPart = rule( `match` ~ '{' ~ CaseClauses ~ '}' )
 
     def Enumerators     = rule( Generator ~ rep(Semis ~ Enumerator) ~ WL )
     def Generator: R0   = rule( Pattern1 ~ LArrow ~ Expr ~ opt(Guard) )
@@ -139,7 +136,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     def SimpleExprStart = rule(
         XmlExpr
       | NewExpr
-      | BlockExpr
+      | ExplicitBlock
       | Literal
       | StableId
       | Uscore
@@ -167,35 +164,29 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
         | ThrowExpr
         | ReturnExpr
         | AssignExpr
-        | MatchExpr
-        | TypedExpr
-        | PostfixExpr
+        | PostfixExpr ~ opt( MatchPart | Ascription )
       )
     )
   }
 
-  def LambdaHead = rule(
-    (   inParens(Binding)
-      | opt(`implicit`) ~ Id ~ OptInfixType
-      | Uscore ~ opt(Ascription)
-    ) ~ RArrow
+  def NameAndOptType = rule( IdOrUscore ~ OptType )
+  def LambdaHead     = rule( LambdaArgs ~ RArrow )
+  def LambdaArgs     = rule(
+      inParens(NameAndOptType)
+    | `implicit` ~ Id ~ OptInfixType
+    | IdOrUscore ~ OptInfixType
   )
+
+  def Block: R0         = ImpliedBlock
+  def ImpliedBlock: R0  = rule( optSemis ~ BlockContents ~ BlockEnd )
+  def ExplicitBlock: R0 = rule( '{' ~ ( CaseClauses | BlockContents ) ~ '}' )
+  def BlockContents     = rule( rep(LambdaHead) ~ BlockStatSeq ~ opt(BlockResult) )
+  def BlockResult: R0   = rule( ExprSensitive | LambdaHead ~ ImpliedBlock )
 
   def ArgumentExprs: R0 = rule(
       '(' ~ opt(Exprs ~ opt(VarargsStar)) ~ ')'
-    | OneNLMax ~ BlockExpr
+    | OneNLMax ~ ExplicitBlock
   )
-
-  def Block: R0 = {
-    def ResultExpr: R0 = rule( ExprSensitive | LambdaHead ~ Block )
-
-    rule(
-      rep(LambdaHead) ~ optSemis ~ (
-          ResultExpr ~ BlockEnd
-        | repsep(BlockStat, Semis) ~ opt(Semis ~ ResultExpr) ~ BlockEnd
-      )
-    )
-  }
 
   def EmptyParens  = rule( '(' ~ ')' )
   def ParamClause  = rule( '(' ~ ( `implicit` ~ Params1 | Params ) ~ ')' )
@@ -252,7 +243,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def Type: R0    = rule( FunArgTypes ~ RArrow ~ Type | InfixType ~ opt(ExistentialClause) )
   def FunArgTypes = rule( InfixType | inParens(ParamType) )
   def Expr        = rule( NotSensitive.Expr )
-  def CompUnit    = rule( semiSeparated(FlatPackageStat) ~ TopStatSeq ~ WL )
+  def CompUnit    = rule( semiSeparated(() => FlatPackageStat) ~ TopStatSeq ~ WL )
 
   def CompilationUnit: Rule1[String] = rule( capture(CompUnit) ~ EOI )
 
@@ -260,13 +251,10 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def Annotation         = rule( At ~ SimpleType ~ rep(ArgumentExprs) )
   def Annotations        = rule( rep(Annotation) )
   def AnnotationsAndMods = rule( rep(Annotation ~ OneNLMax) ~ rep(Modifier) )
-  def BlockBody          = rule( OneNLMax ~ '{' ~ Block ~ '}' )
-  def BlockExpr: R0      = rule( '{' ~ (CaseClauses | Block) ~ optSemis ~ '}' )
-  def CaseBlock          = rule( '{' ~ CaseClauses ~ '}' )
-  def CaseClause: R0     = rule( `case` ~ Pattern ~ opt(NotSensitive.Guard) ~ RArrow ~ Block )
+  def CaseClause: R0     = rule( `case` ~ Pattern ~ opt(NotSensitive.Guard) ~ RArrow ~ ImpliedBlock )
   def CaseClauses: R0    = rule( rep1(CaseClause) )
   def ConstructorMods    = rule( NotNL ~ AnnotationsAndMods )
-  def EarlyDefs          = rule( inBraces(Def) ~ `with` )
+  def EarlyDefs          = rule( inBraces(() => Def) ~ `with` )
   def ExprSensitive      = rule( IsSensitive.Expr )
   def Exprs: R0          = rule( rep1sep(Expr, Comma) )
   def ExtendsClause      = rule( `extends` ~ ExtendsOrNew )
@@ -286,16 +274,17 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def OptType            = rule( opt(Colon ~ Type) )
   def OptParamType       = rule( opt(Colon ~ ParamType) )
   def ParamType: R0      = rule( Type ~ opt(Star) | RArrow ~ Type )
-  def PackageDef         = rule( Package ~ QualId ~ inBraces(TopStat) )
+  def PackageDef         = rule( Package ~ QualId ~ inBraces(() => TopStat) )
   def ParenExpr          = rule( '(' ~ Expr ~ ')' )
   def Parents            = rule( opt(EarlyDefs) ~ IntersectionType )
   def Patterns           = rule( rep1sep(Pattern2, Comma) )
   def SelfType: R0       = rule( IdOrUscoreOrThis ~ OptInfixType ~ RArrow )
-  def Template           = rule( '{' ~ opt(SelfType) ~ semiSeparated(TemplateStat) ~ '}' )
+  def Template           = rule( '{' ~ opt(SelfType) ~ semiSeparated(() => TemplateStat) ~ '}' )
   def TemplateDef        = rule( AnnotationsAndMods ~ Unmodified.TemplateDef )
   def TemplateOpt        = rule( ExtendsClause | opt(Template) )
   def TemplateStat: R0   = rule( BlockStat | Dcl )
-  def TopStatSeq         = semiSeparated(TopStat)
+  def BlockStatSeq       = semiSeparated(() => BlockStat)
+  def TopStatSeq         = semiSeparated(() => TopStat)
   def TypeArgs           = inBrackets(TypeArg)
   def ValOrVar           = rule( `val` | `var` )
   def VarargsStar        = rule( Colon ~ WildcardStar )
@@ -332,16 +321,16 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
 
   /** Recombinators. */
   def oneOrBoth(p: => R0, q: => R0): R0 = rule( p ~ opt(q) | q )
-  def inBraces(stat: => R0): R0         = rule( '{' ~ semiSeparated(stat) ~ '}' )
+  def inBraces(stat: () => R0): R0      = rule( '{' ~ semiSeparated(stat) ~ '}' )
   def inParens(elem: => R0): R0         = rule( '(' ~ repsep(elem, Comma) ~ ')' )
   def inBrackets(param: => R0): R0      = rule( '[' ~ rep1sep(param, Comma) ~ ']' )
-  def semiSeparated(stat: => R0): R0    = rule( optSemis ~ repsep(stat, Semis) ~ optSemis )
+  def semiSeparated(stat: () => R0): R0 = rule( optSemis ~ repsep(stat(), Semis) ~ optSemis )
 
   object Unmodified {
     private def FunDefIntro      = rule( `def` ~ IdOrThis ~ FunTypeParamClauses ~ ParamClauses )
     private def TypeDefIntro     = rule( `type` ~ Id ~ TypeParamClauses )
     private def TemplateDefIntro = rule( TemplateKeyword ~ Id ~ TypeParamClauses ~ opt(ConstructorMods) ~ ParamClauses )
-    private def FunBody          = rule( OptType ~ EqualsBody | BlockBody )
+    private def FunBody          = rule( OptType ~ EqualsBody | OneNLMax ~ ExplicitBlock )
     private def EqualsBody       = rule( Equals ~ opt(`macro`) ~ ExprSensitive )
 
     def TypeAliasDef        = rule( TypeDefIntro ~ Equals ~ Type )
