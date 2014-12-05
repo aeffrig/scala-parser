@@ -33,6 +33,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def Colon        = rule( `:` )
   def Comma        = rule( ',' )
   def Dot          = rule( '.' )
+  def Hash         = rule( '#' )
   def Equals       = rule( `=` )
   def LArrow       = rule( `<-` )
   def Package      = rule( `package` )
@@ -82,7 +83,8 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def CompoundType     = oneOrBoth(IntersectionType, rule( OneNLMax ~ inBraces(Unmodified.RefinementDcl) ) )
   def AnnotType        = rule( SimpleType ~ rep(NotNL ~ Annotation) )
 
-  def Ascription        = rule( Colon ~ ( WildcardStar | Type | Annotations1 ) )
+  def ValueAnnotations  = rule( rep1(Annotation) )  // e.g. (x: @switch) match { ... }
+  def Ascription        = rule( Colon ~ ( WildcardStar | Type | ValueAnnotations ) )
   def Binding           = rule( IdOrUscore ~ OptType )
   def Bindings          = rule( repsep(Binding, Comma) )
   def Bindings1         = rule( rep1sep(Binding, Comma) )
@@ -92,7 +94,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def ProductType       = rule( '(' ~ rep1sep(Type, Comma) ~ ')' )
   def SimpleType        = rule( ( UnitType | ProductType | SingletonType | StableId ) ~ TypeSuffix )
   def SingletonType     = rule( StableId ~ Dot ~ `type` )
-  def TypeProjection    = rule( '#' ~ Id )
+  def TypeProjection    = rule( Hash ~ Id )
   def TypeSuffix        = rule( rep(TypeArgs | TypeProjection) )
   def UnitType          = rule( EmptyParens )
 
@@ -153,7 +155,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     def Enumerator: R0 = rule(
         Generator
       | Guard
-      | ForAssignment
+      | opt(`val` /*deprecated*/) ~ ForAssignment
     )
     def Expr: R0 = rule(
       rep(LambdaHead) ~ (
@@ -217,7 +219,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
 
   def SimplePattern = rule(
       XmlPattern
-    | UnderscorePattern
+    | TypedPattern
     | LiteralPattern
     | ProductPattern
     | ConstructorPattern
@@ -247,7 +249,6 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def AccessModifier     = rule( ( `private` | `protected` ) ~ opt(Qualifier) )
   def Annotation         = rule( At ~ SimpleType ~ rep(ArgumentExprs) )
   def Annotations        = rule( rep(Annotation) )
-  def Annotations1       = rule( rep1(Annotation) )
   def AnnotationsAndMods = rule( rep(Annotation ~ OneNLMax) ~ rep(Modifier) )
   def BlockBody          = rule( OneNLMax ~ '{' ~ Block ~ '}' )
   def BlockExpr: R0      = rule( '{' ~ (CaseClauses | Block) ~ optSemis ~ '}' )
