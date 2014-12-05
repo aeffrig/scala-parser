@@ -154,34 +154,30 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
       | Guard
       | opt(`val` /*deprecated*/) ~ ForAssignment
     )
+    def LambdaExpr = rule( LambdaArgs ~ RArrow ~ ( Expr | ImpliedBlock ) )
     def Expr: R0 = rule(
-      rep(LambdaHead) ~ (
-          IfExpr
-        | WhileExpr
-        | TryExpr
-        | DoExpr
-        | ForExpr
-        | ThrowExpr
-        | ReturnExpr
-        | AssignExpr
-        | PostfixExpr ~ opt( MatchPart | Ascription )
-      )
+        LambdaExpr
+      | IfExpr
+      | WhileExpr
+      | TryExpr
+      | DoExpr
+      | ForExpr
+      | ThrowExpr
+      | ReturnExpr
+      | AssignExpr
+      | PostfixExpr ~ opt( MatchPart | Ascription )
     )
   }
 
   def NameAndOptType = rule( IdOrUscore ~ OptType )
-  def LambdaHead     = rule( LambdaArgs ~ RArrow )
   def LambdaArgs     = rule(
       inParens(NameAndOptType)
     | `implicit` ~ Id ~ OptInfixType
     | IdOrUscore ~ OptInfixType
   )
-
   def Block: R0         = ImpliedBlock
-  def ImpliedBlock: R0  = rule( optSemis ~ BlockContents ~ BlockEnd )
-  def ExplicitBlock: R0 = rule( '{' ~ ( CaseClauses | BlockContents ) ~ '}' )
-  def BlockContents     = rule( rep(LambdaHead) ~ BlockStatSeq ~ opt(BlockResult) )
-  def BlockResult: R0   = rule( ExprSensitive | LambdaHead ~ ImpliedBlock )
+  def ImpliedBlock: R0  = rule( optSemis ~ BlockStatSeq ~ BlockEnd )
+  def ExplicitBlock: R0 = rule( '{' ~ ( CaseClauses | BlockStatSeq ) ~ '}' )
 
   def ArgumentExprs: R0 = rule(
       '(' ~ opt(Exprs ~ opt(VarargsStar)) ~ ')'
