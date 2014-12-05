@@ -33,7 +33,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def Colon        = rule( `:` )
   def Comma        = rule( ',' )
   def Dot          = rule( '.' )
-  def Hash         = rule( '#' )
+  def Hash         = rule( `#` )
   def Equals       = rule( `=` )
   def LArrow       = rule( `<-` )
   def Package      = rule( `package` )
