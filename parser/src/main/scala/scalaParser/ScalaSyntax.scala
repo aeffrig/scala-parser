@@ -205,25 +205,29 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def Params1      = rule( rep1sep(Param, Comma) )
   def Param        = rule( Annotations ~ opt(rep(Modifier) ~ ValOrVar) ~ Id ~ OptType ~ OptEquals )
 
-  def Pattern        = rule( rep1sep(Pattern1, Pipe) )
-  def Pattern1: R0   = rule( Uscore ~ Colon ~ TypePat | VarId ~ Colon ~ TypePat | Pattern2 )
-  def Pattern2       = rule( VarIdOrUscore ~ At ~ Pattern3 | Pattern3 | VarId )
-  def Pattern3       = rule( WildcardStar | rep1sep(SimplePattern, Id) )
-  def ExtractorArgs  = rule( repsep(Pattern, Comma) )
-  def Extractor      = rule( StableId ~ opt(TuplePattern) )
-  def TuplePattern   = rule( '(' ~ ExtractorArgs ~ ')' )
-  def TypePat        = rule( CompoundType )
-  def TypedPattern   = rule( !WildcardStar ~ Uscore ~ opt(Colon ~ TypePat) )
-  def LiteralPattern = rule( Literal )
-  def SimplePattern  = rule(
-      XmlPattern
-    | TypedPattern
-    | LiteralPattern
-    | TuplePattern
-    | Extractor
-    | VarId
-  )
+  def Pattern            = AltPattern
+  def PatternType        = rule( CompoundType )
+  def PatternAscription  = rule( Colon ~ PatternType )
+  def UnderscorePattern  = rule( Uscore ~ !Star ~ opt(PatternAscription) )
+  def VariablePattern    = rule( VarId )
+  def TypedPattern       = rule( VarIdOrUscore ~ PatternAscription )
+  def PatternBinding     = rule( VarIdOrUscore ~ At )
+  def Pattern1: R0       = rule( TypedPattern | Pattern2 )
+  def Pattern2           = rule( opt(PatternBinding) ~ ( WildcardStar | InfixPattern ) )
+  def AltPattern         = rule( rep1sep(Pattern1, Pipe) )
+  def InfixPattern       = rule( rep1sep(SimplePattern, Id) )
+  def ConstructorPattern = rule( StableId ~ opt(ProductPattern) )
+  def ProductPattern     = rule( inParens(Pattern) )
+  def LiteralPattern     = rule( Literal )
 
+  def SimplePattern = rule(
+      XmlPattern
+    | UnderscorePattern
+    | LiteralPattern
+    | ProductPattern
+    | ConstructorPattern
+    | VariablePattern
+  )
 
   def TypeArgs               = inBrackets(Type)
   def FunTypeParamClause     = inBrackets(rule(Annotations ~ TypeParam))
