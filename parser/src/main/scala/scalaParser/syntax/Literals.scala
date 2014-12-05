@@ -7,6 +7,8 @@ import macros.Macros._
 trait Literals {
   self: PspParser =>
 
+  def BindablePattern: Rule0
+  def Pattern: Rule0
   def Block: Rule0
   def WL: Rule0
 
@@ -15,7 +17,7 @@ trait Literals {
 
   object Literals {
     import Basic._
-    import Identifiers.{ Id, IdOrKeyword, RawPlainId }
+    import Identifiers.{ Id, IdOrKeyword }
 
     private def optMinus    = rule( opt('-') )
     private def optExponent = rule( opt(ExponentPart) )
@@ -26,6 +28,12 @@ trait Literals {
 
     def BlockCommentBegin = rule( "/*" )
     def BlockCommentEnd   = rule( "*/" )
+    def Backslash         = rule( '\\' )
+    def Quote             = rule( '"' )
+    def OptQuote          = rule( opt(Quote) )
+    def NonQuoteChar      = rule( !Quote ~ ANY )
+    def SingleChar        = rule( "\\\"" | "\\\\" | noneOf("\n\"") )
+    def TripleChar        = rule( OptQuote ~ OptQuote ~ NonQuoteChar )
 
     def `true`  = rule( literal("true") )
     def `false` = rule( literal("false") )
@@ -37,48 +45,58 @@ trait Literals {
     def MultilineComment: R0 = rule( BlockCommentBegin ~ BlockCommentChars ~ BlockCommentEnd )
     def SingleLineComment    = rule( "//" ~ RestOfLine )
 
-    def BooleanLiteral     = rule( `true` | `false` )
-    def CharLiteralChars   = rule( UnicodeEscape | OctalEscape | EscapedChar | !'\\' ~ PrintableChar )
-    def CharacterLiteral   = rule( ''' ~ CharLiteralChars ~ ''' )
-    def EscapedChar        = rule( '\\' ~ anyOf(Escapable) )
-    def HexLiteral         = rule( HexNumeral ~ optLong )
-    def IntegerLiteral     = rule( IntegerNumeral ~ optLong )
-    def MultiLineChars     = rule( rep(Interpolation | opt('"') ~ opt('"') ~ noneOf("\"")) )
-    def NullLiteral        = rule( `null` )
-    def NumericLiteral     = rule( optMinus ~ PositiveLiteral )
-    def PositiveLiteral    = rule( FloatingPointLiteral | HexLiteral | IntegerLiteral )
-    def SingleInterpolated = rule( Id ~ '"' ~ rep(Interpolation | SingleStringChar) ~ '"' )
-    def SingleString       = rule( '"' ~ rep(SingleStringChar) ~ '"' )
-    def SingleStringChar   = rule( "\\\"" | "\\\\" | noneOf("\n\"") )
-    def SymbolLiteral      = rule( ''' ~ IdOrKeyword ) // Note that symbols can take on the same values as keywords!
-    def TripleInterpolated = rule( Id ~ TripleString )
-    def TripleQuoteEnd     = rule( TQ ~ rep('"') )
-    def TripleQuoteStart   = rule( TQ ~ rep(!TQ ~ '"') )
-    def TripleString       = rule( TripleQuoteStart ~ MultiLineChars ~ TripleQuoteEnd )
+    def BooleanLiteral   = rule( `true` | `false` )
+    def CharLiteralChars = rule( UnicodeEscape | OctalEscape | EscapedChar | !Backslash ~ PrintableChar )
+    def CharacterLiteral = rule( ''' ~ CharLiteralChars ~ ''' )
+    def EscapedChar      = rule( Backslash ~ anyOf(Escapable) )
+    def HexLiteral       = rule( HexNumeral ~ optLong )
+    def IntegerLiteral   = rule( IntegerNumeral ~ optLong )
+    def NullLiteral      = rule( `null` )
+    def NumericLiteral   = rule( optMinus ~ PositiveLiteral )
+    def PositiveLiteral  = rule( FloatingPointLiteral | HexLiteral | IntegerLiteral )
+    def SingleString     = rule( Quote ~ rep(SingleChar) ~ Quote )
+    def SymbolLiteral    = rule( ''' ~ IdOrKeyword ) // Note that symbols can take on the same values as keywords!
+    def TripleEnd        = rule( TQ ~ rep('"') )
+    def TripleStart      = rule( TQ ~ rep(!TQ ~ '"') )
+    def TripleString     = rule( TripleStart ~ rep(TripleChar) ~ TripleEnd )
 
     def FloatingPointLiteral = rule(
         opt(Digits) ~ '.' ~ Digits ~ optExponent ~ optFloat
       | Digits ~ ExponentPart ~ optFloat
       | Digits ~ optExponent ~ FloatType
     )
-    def Literal = rule(
-        NumericLiteral
-      | BooleanLiteral
-      | CharacterLiteral
-      | StringLiteral
-      | SymbolLiteral
-      | NullLiteral
-    )
-    def StringLiteral = rule(
-        TripleInterpolated
-      | SingleInterpolated
-      | TripleString
-      | SingleString
-    )
-    def Interpolation = rule(
-        "$" ~ RawPlainId
-      | "${" ~ Block ~ WL ~ "}"
-      | "$$"
-    )
+
+    abstract class PatternSensitive {
+      def inPattern: Boolean
+
+      private def InterpId          = rule( "$" ~ Identifiers.RawPlainId )
+      private def SingleChars       = rule( rep(Interpolation | SingleChar) )
+      private def TripleChars       = rule( rep(Interpolation | TripleChar) )
+      private def Triple            = rule( Identifiers.Id ~ TripleStart ~ TripleChars ~ TripleEnd )
+      private def Single            = rule( Identifiers.Id ~ Quote ~ SingleChars ~ Quote )
+      private def Interpolation: R0 = rule(
+          InterpId
+        | "$$"
+        | test(inPattern) ~ "${" ~ ( '{' ~ BindablePattern ~ '}' | BindablePattern ) ~ "}"
+        | "${" ~ Block ~ WL ~ "}"
+      )
+      def Rule = rule(
+          NumericLiteral
+        | BooleanLiteral
+        | CharacterLiteral
+        | Triple
+        | Single
+        | TripleString
+        | SingleString
+        | SymbolLiteral
+        | NullLiteral
+      )
+    }
+
+    object InPattern extends PatternSensitive { def inPattern = true }
+    object OutsidePattern extends PatternSensitive { def inPattern = false }
+
+    def Pattern = rule( WL ~ InPattern.Rule )
+    def Expr    = rule( WL ~ OutsidePattern.Rule )
   }
 }

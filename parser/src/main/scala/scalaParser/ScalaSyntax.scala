@@ -59,7 +59,6 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def IdOrThisOrSuper  = rule( Id | `this` | `super` )
   def IdOrUscore       = rule( Id | Uscore )
   def IdOrUscoreOrThis = rule( Id | Uscore | `this` )
-  def Literal          = rule( WL ~ Literals.Literal )
   def NL               = rule( WL ~ Basic.Newline )
   def OptNL            = rule( WS ~ opt(Basic.Newline) )
   def QualId           = rule( WL ~ rep1sep(Id, Dot) )
@@ -137,7 +136,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
         XmlExpr
       | NewExpr
       | ExplicitBlock
-      | Literal
+      | Literals.Expr
       | StableId
       | Uscore
       | TupleExpr
@@ -204,12 +203,11 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def InfixPattern           = rule( rep1sep(SimplePattern, Id) )
   def ConstructorPattern     = rule( StableId ~ opt(ProductPattern) )
   def ProductPattern         = rule( inParens(Pattern) )
-  def LiteralPattern         = rule( Literal )
 
   def SimplePattern = rule(
       XmlPattern
     | UnderscorePattern
-    | LiteralPattern
+    | Literals.Pattern
     | ProductPattern
     | ConstructorPattern
     | VariablePattern
