@@ -70,9 +70,9 @@ trait Xml {
     def Ideographic = rule( "\u4E00"-"\u9FA5" | "\u3007" | "\u3021"-"\u3029" )
 
     def AttValue = rule(
-      '"' ~ rep(CharQ | Reference) ~ '"' |
-      "'" ~ rep(CharA | Reference) ~ "'" |
-      ScalaExpr
+        '"' ~ rep(CharQ | Reference) ~ '"'
+      | "'" ~ rep(CharA | Reference) ~ "'"
+      | ScalaExpr
     )
     def NameStartChar = rule(
         ":"
@@ -114,6 +114,10 @@ trait Xml {
     def EmptyElemTagP = rule( TagBegin ~ opt(WL) ~ TagEnd )
     def PI            = rule( PIBegin ~ PIContent ~ PIEnd )
 
+    def UnparsedBegin = rule( "<xml:unparsed>" )
+    def UnparsedEnd   = rule( "</xml:unparsed>" )
+    def Unparsed      = rule( UnparsedBegin ~ rep(!UnparsedEnd ~ ANY) ~ UnparsedEnd )
+
     def Attribute          = rule( Name ~ Eq ~ AttValue )
     def Attributes         = rule( rep(WL ~ Attribute) ~ opt(WL) )
     def CData              = rule( rep(!CDEnd ~ Char))
@@ -141,6 +145,6 @@ trait Xml {
     def ScalaExpr          = rule( '{' ~ WS ~ Block ~ WS ~ '}' )
     def ScalaPatterns      = rule( '{' ~ Patterns ~ WL ~ '}' )
     def XNameStart         = rule( '_' | BaseChar | Ideographic )
-    def XmlContent: Rule0  = rule( Element | CDSect | PI | Comment )
+    def XmlContent: Rule0  = rule( Unparsed | Element | CDSect | PI | Comment )
   }
 }

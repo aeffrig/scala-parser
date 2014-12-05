@@ -10,17 +10,16 @@ def common = Seq(
   )
 )
 
-val macros = project settings (common: _*) settings (
+lazy val macros: Project = project settings (common: _*) settings (
   libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided"
 )
 
-val parser = project dependsOn macros settings (common: _*) settings (
-          name :=  "scala-parser",
-          test :=  (run in Test toTask "").value
+lazy val parser: Project = project dependsOn macros settings (common: _*) settings (
+                 name := "scala-parser",
+                 test := (run in Test toTask "").value,
+  libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "test"
 )
 
-run in Test <<= run in Test in parser
-
-run <<= run in Compile in parser
-
-watchSources ++= scratchSources.value
+  run in Test <<=  run in Test in parser
+          run <<=  run in Compile in parser
+ watchSources <++= scratchSources

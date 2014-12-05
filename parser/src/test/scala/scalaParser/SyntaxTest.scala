@@ -58,8 +58,11 @@ object SyntaxTest {
     print(s"[%6s] $maxFileFmt  ".format(input.length, path_s))
 
     def finish(res: Result, str: String): Result = {
-      println(res.ansi)
-      if (str != "") println("\n" + str + "\n")
+      print(res.ansi)
+      if (str == "") println("")
+      else if (res == Fail) println("\n" + str + "\n")
+      else println(str)
+
       res
     }
     def failMessage(error: ParseError): String = {
@@ -72,13 +75,20 @@ object SyntaxTest {
           |""".stripMargin.trim
     }
 
+    def checkScalac(err: ParseError): Result = {
+      ScalacGlobal(f) match {
+        case ((true, res))  => finish(Fail, failMessage(err))
+        case ((false, res)) => finish(Pass, " (nobody can parse)")
+      }
+    }
+
     if (isSkip) finish(Skip, "")
     else parser.CompilationUnit.run() match {
       case Success(`input`) if !isNeg => finish(Pass, "")
       case Failure(_) if isNeg        => finish(Pass, "")
-      case Failure(t: ParseError)     => finish(Fail, failMessage(t))
+      case Success(s)                 => finish(Pass, " (more liberal parser)")
+      case Failure(t: ParseError)     => checkScalac(t)
       case Failure(t)                 => throw t
-      case Success(s)                 => sys.error(s"Incomplete: $s")
     }
   }
 
