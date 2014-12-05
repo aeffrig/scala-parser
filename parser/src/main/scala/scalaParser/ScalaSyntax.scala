@@ -230,6 +230,13 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def TypeParamClauses       = rule( rep(VariantTypeParamClause) )
   def FunTypeParamClauses    = rule( rep(FunTypeParamClause) )
 
+  // In scala it would suffice for TypeBounds to follow underscore, since the only
+  // place you can use it is e.g. Foo[_ <: Bar]
+  //
+  // but we want to be able to do other things such as
+  //   case x: Foo[t <: Bar] => (x: t) => 1
+  //
+  def TypeArg          = rule( Type ~ TypeBounds )
   def TypeParam: R0    = rule( IdOrUscore ~ TypeParamClauses ~ MethodTypeBounds )
   def TypeBounds       = rule( opt(SuperType ~ Type) ~ opt(SubType ~ Type) )
   def MethodTypeBounds = rule( TypeBounds ~ ViewBounds ~ ContextBounds )
@@ -237,11 +244,12 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def ViewBounds       = rule( rep(VBound ~ Type) )
 
   /** Highest level rules. */
-  def Dcl      = rule( AnnotationsAndMods ~ Unmodified.Dcl )
-  def Def      = rule( AnnotationsAndMods ~ Unmodified.Def )
-  def Type: R0 = rule( rep1sep(InfixType, RArrow) ~ TypeBounds ~ opt(ExistentialClause) )
-  def Expr     = rule( NotSensitive.Expr )
-  def CompUnit = rule( semiSeparated(FlatPackageStat) ~ TopStatSeq ~ WL )
+  def Dcl         = rule( AnnotationsAndMods ~ Unmodified.Dcl )
+  def Def         = rule( AnnotationsAndMods ~ Unmodified.Def )
+  def Type: R0    = rule( FunArgTypes ~ RArrow ~ Type | InfixType ~ opt(ExistentialClause) )
+  def FunArgTypes = rule( InfixType | inParens(ParamType) )
+  def Expr        = rule( NotSensitive.Expr )
+  def CompUnit    = rule( semiSeparated(FlatPackageStat) ~ TopStatSeq ~ WL )
 
   def CompilationUnit: Rule1[String] = rule( capture(CompUnit) ~ EOI )
 
@@ -285,7 +293,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def TemplateOpt        = rule( ExtendsClause | opt(Template) )
   def TemplateStat: R0   = rule( BlockStat | Dcl )
   def TopStatSeq         = semiSeparated(TopStat)
-  def TypeArgs           = inBrackets(Type)
+  def TypeArgs           = inBrackets(TypeArg)
   def ValOrVar           = rule( `val` | `var` )
   def VarargsStar        = rule( Colon ~ WildcardStar )
 
