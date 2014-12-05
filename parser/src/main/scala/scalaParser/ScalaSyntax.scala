@@ -113,17 +113,18 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     def DoExpr     = rule( `do` ~ Expr ~ optSemi ~ `while` ~ ParenExpr )
     def ForExpr    = rule( `for` ~ EnumeratorsPart ~ opt(`yield`) ~ Expr )
     def IfExpr     = rule( `if` ~ ParenExpr ~ Expr ~ opt(optSemi ~ ElsePart) )
+    def MatchExpr  = rule( PostfixExpr ~ `match` ~ CaseBlock )
     def ReturnExpr = rule( `return` ~ opt(Expr) )
     def ThrowExpr  = rule( `throw` ~ Expr )
     def TryExpr    = rule( TryPart ~ opt(CatchPart) ~ opt(FinPart) )
     def TupleExpr  = rule( '(' ~ opt(Exprs) ~ ')' )
+    def TypedExpr  = rule( PostfixExpr ~ Ascription )
     def WhileExpr  = rule( `while` ~ ParenExpr ~ Expr )
 
     def TryPart   = rule( `try` ~ Expr )
     def CatchPart = rule( `catch` ~ Expr )
     def FinPart   = rule( `finally` ~ Expr )
     def ElsePart  = rule( `else` ~ Expr )
-    def MatchPart = rule( `match` ~ CaseBlock )
 
     def Enumerators     = rule( Generator ~ rep(Semis ~ Enumerator) ~ WL )
     def Generator: R0   = rule( Pattern1 ~ LArrow ~ Expr ~ opt(Guard) )
@@ -166,7 +167,9 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
         | ThrowExpr
         | ReturnExpr
         | AssignExpr
-        | PostfixExpr ~ opt(MatchPart | Ascription)
+        | MatchExpr
+        | TypedExpr
+        | PostfixExpr
       )
     )
   }
