@@ -74,14 +74,17 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def Qualifier    = rule( '[' ~ IdOrThis ~ ']' )
   def StableId: R0 = rule( rep1sep(IdOrThisOrSuper, Dot) )
 
-  def TypeMiddle: R0 = rule( rep1sep(Uscore | InfixType, RArrow) )
+  def TypeMiddle: R0 = rule( rep1sep(InfixType, RArrow) )
   def TypeEnd        = rule( TypeBounds ~ opt(ExistentialClause) ~ opt(Star) )
 
-  def InfixType        = rule( rep1sep(CompoundType, NotNL ~ Id ~ OneNLMax) )
-  def ParentType       = rule( AnnotType ~ rep(NotNL ~ ArgumentExprs) )
-  def IntersectionType = rule( rep1sep(ParentType, `with`) )
+  def InfixType: R0    = rule( rep1sep(CompoundType, NotNL ~ Id ~ OneNLMax) )
   def CompoundType     = oneOrBoth(IntersectionType, rule( OneNLMax ~ inBraces(Unmodified.RefinementDcl) ) )
+  def IntersectionType = rule( rep1sep(ParentType, `with`) )
+  def ParentType       = rule( AnnotType ~ rep(NotNL ~ ArgumentExprs) )
   def AnnotType        = rule( SimpleType ~ rep(NotNL ~ Annotation) )
+  def WildcardType     = rule( Uscore )
+  def AtomicType       = rule( WildcardType | UnitType | ProductType | SingletonType | StableId )
+  def SimpleType       = rule( AtomicType ~ TypeSuffix )
 
   def ValueAnnotations  = rule( rep1(Annotation) )  // e.g. (x: @switch) match { ... }
   def Ascription        = rule( Colon ~ ( WildcardStar | Type | ValueAnnotations ) )
@@ -92,7 +95,6 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def NotNL: R0         = rule( &( WS ~ !Basic.Newline ) )
   def OneNLMax: R0      = rule( OptNL ~ rep(CommentWS) ~ NotNL )
   def ProductType       = rule( '(' ~ rep1sep(Type, Comma) ~ ')' )
-  def SimpleType        = rule( ( UnitType | ProductType | SingletonType | StableId ) ~ TypeSuffix )
   def SingletonType     = rule( StableId ~ Dot ~ `type` )
   def TypeProjection    = rule( Hash ~ Id )
   def TypeSuffix        = rule( rep(TypeArgs | TypeProjection) )
@@ -219,7 +221,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
 
   def SimplePattern = rule(
       XmlPattern
-    | TypedPattern
+    | UnderscorePattern
     | LiteralPattern
     | ProductPattern
     | ConstructorPattern
