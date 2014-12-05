@@ -74,9 +74,6 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def Qualifier    = rule( '[' ~ IdOrThis ~ ']' )
   def StableId: R0 = rule( rep1sep(IdOrThisOrSuper, Dot) )
 
-  def TypeMiddle: R0 = rule( rep1sep(InfixType, RArrow) )
-  def TypeEnd        = rule( TypeBounds ~ opt(ExistentialClause) ~ opt(Star) )
-
   def InfixType: R0    = rule( rep1sep(CompoundType, NotNL ~ Id ~ OneNLMax) )
   def CompoundType     = oneOrBoth(IntersectionType, rule( OneNLMax ~ inBraces(Unmodified.RefinementDcl) ) )
   def IntersectionType = rule( rep1sep(ParentType, `with`) )
@@ -94,7 +91,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def ExistentialClause = rule( `forSome` ~ inBraces(Unmodified.Dcl) )
   def NotNL: R0         = rule( &( WS ~ !Basic.Newline ) )
   def OneNLMax: R0      = rule( OptNL ~ rep(CommentWS) ~ NotNL )
-  def ProductType       = rule( '(' ~ rep1sep(Type, Comma) ~ ')' )
+  def ProductType       = rule( '(' ~ rep1sep(ParamType, Comma) ~ ')' )
   def SingletonType     = rule( StableId ~ Dot ~ `type` )
   def TypeProjection    = rule( Hash ~ Id )
   def TypeSuffix        = rule( rep(TypeArgs | TypeProjection) )
@@ -202,7 +199,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def ParamClauses = rule( rep(ParamClause) )
   def Params       = rule( repsep(Param, Comma) )
   def Params1      = rule( rep1sep(Param, Comma) )
-  def Param        = rule( Annotations ~ opt(rep(Modifier) ~ ValOrVar) ~ Id ~ OptType ~ OptEquals )
+  def Param        = rule( Annotations ~ opt(rep(Modifier) ~ ValOrVar) ~ Id ~ OptParamType ~ OptEquals )
 
   def Pattern            = AltPattern
   def PatternType        = rule( CompoundType )
@@ -242,7 +239,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   /** Highest level rules. */
   def Dcl      = rule( AnnotationsAndMods ~ Unmodified.Dcl )
   def Def      = rule( AnnotationsAndMods ~ Unmodified.Def )
-  def Type: R0 = rule( opt(RArrow) ~ TypeMiddle ~ TypeEnd )
+  def Type: R0 = rule( rep1sep(InfixType, RArrow) ~ TypeBounds ~ opt(ExistentialClause) )
   def Expr     = rule( NotSensitive.Expr )
   def CompUnit = rule( semiSeparated(FlatPackageStat) ~ TopStatSeq ~ WL )
 
@@ -276,6 +273,8 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def OptEquals          = rule( opt(Equals ~ Expr) )
   def OptInfixType       = rule( opt(Colon ~ InfixType) )
   def OptType            = rule( opt(Colon ~ Type) )
+  def OptParamType       = rule( opt(Colon ~ ParamType) )
+  def ParamType: R0      = rule( Type ~ opt(Star) | RArrow ~ Type )
   def PackageDef         = rule( Package ~ QualId ~ inBraces(TopStat) )
   def ParenExpr          = rule( '(' ~ Expr ~ ')' )
   def Parents            = rule( opt(EarlyDefs) ~ IntersectionType )
