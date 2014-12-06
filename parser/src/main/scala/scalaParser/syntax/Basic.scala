@@ -12,6 +12,8 @@ trait Basic {
   type R1[T] = Rule1[T]
 
   object Basic {
+    def UnicodeEscape = rule( "\\u" ~ 4.times(HexDigit) )
+
     def AlphaNum       = rule( Letter | Digit )
     def DelimiterChar  = rule( anyOf("'\".;,") )
     def Digit          = CharPredicate.Digit
@@ -31,7 +33,6 @@ trait Basic {
     def PrintableChar  = CharPredicate from isPrintableChar
     def RestOfLine     = rule( zeroOrMore(!Newline ~ ANY) ~ &(NewlineOrEnd) )
     def Semi           = rule( ';' | oneOrMore(Newline) )
-    def UnicodeEscape  = rule( "\\u" ~ 4.times(HexDigit) )
     def Upper          = rule( "A" - "Z" | IsUpper )
     def WhitespaceChar = rule( "\u0020" | "\u0009" )
 

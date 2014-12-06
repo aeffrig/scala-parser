@@ -43,9 +43,12 @@ object SyntaxTest {
     val input    = try f.slurp() catch { case _: NoSuchFileException => return Skip }
     val fs       = f.toString
     val segments = (fs splitChar '/').toSet
-    val path_s = fs stripPrefix root.toString stripPrefix "/" match {
-      case s if s.length <= maxFileLen => s
-      case s                           => "..." + (s takeRight maxFileLen - 3)
+    val path_s = {
+      try fs stripPrefix root.toString stripPrefix "/" match {
+        case s if s.length <= maxFileLen => s
+        case s                           => "..." + (Predef.augmentString(s) takeRight maxFileLen - 3)
+      }
+      catch { case _: Exception => return Skip }
     }
     val isNeg  = segments("neg")
     val isSkip = (
