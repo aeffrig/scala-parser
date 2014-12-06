@@ -46,7 +46,7 @@ trait Literals {
     def SingleLineComment    = rule( "//" ~ RestOfLine )
 
     def BooleanLiteral   = rule( `true` | `false` )
-    def CharLiteralChars = rule( UnicodeEscape | OctalEscape | EscapedChar | !Backslash ~ PrintableChar )
+    def CharLiteralChars = rule( UnicodeEscape | OctalEscape | EscapedChar | !Backslash ~ ANY ) //PrintableChar )
     def CharacterLiteral = rule( ''' ~ CharLiteralChars ~ ''' )
     def EscapedChar      = rule( Backslash ~ anyOf(Escapable) )
     def HexLiteral       = rule( HexNumeral ~ optLong )
@@ -72,8 +72,8 @@ trait Literals {
       private def InterpId          = rule( "$" ~ Identifiers.RawPlainId )
       private def SingleChars       = rule( rep(Interpolation | SingleChar) )
       private def TripleChars       = rule( rep(Interpolation | TripleChar) )
-      private def Triple            = rule( Identifiers.Id ~ TripleStart ~ TripleChars ~ TripleEnd )
-      private def Single            = rule( Identifiers.Id ~ Quote ~ SingleChars ~ Quote )
+      private def TripleInterp      = rule( TripleStart ~ TripleChars ~ TripleEnd )
+      private def SingleInterp      = rule( Quote ~ SingleChars ~ Quote )
       private def Interpolation: R0 = rule(
           InterpId
         | "$$"
@@ -84,8 +84,7 @@ trait Literals {
           NumericLiteral
         | BooleanLiteral
         | CharacterLiteral
-        | Triple
-        | Single
+        | Identifiers.Id ~ ( TripleInterp | SingleInterp )
         | TripleString
         | SingleString
         | SymbolLiteral

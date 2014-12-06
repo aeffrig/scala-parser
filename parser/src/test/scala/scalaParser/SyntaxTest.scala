@@ -18,14 +18,15 @@ object SyntaxTest {
 
   private def tryOpt[A](body: => Option[A]): Option[A] = Try(body) | None
 
-  // A unicode escape without any quote characters on the same line.
-  val unicodeRegex = """^[^"']*[\\][u]\d{4}[^"']*$"""
-
   def maxFileLen   = 100
   def maxFileFmt   = "%-" + maxFileLen + "s"
   def scalaSources = "."
 
-  def scalaPaths(root: Path): Seq[Path] = Process(Seq("find", s"$root/", "-type", "f", "-name", "*.scala", "-print")).lines map (x => path(x))
+  def scalaPaths(root: Path): Seq[Path] = (
+    scala.util.Random.shuffle(
+      Process(Seq("find", s"$root/", "-type", "f", "-name", "*.scala", "-print")).lines map (x => path(x))
+    )
+  )
 
   def dump(f: ParseError) {
     println(f.position)
@@ -52,9 +53,10 @@ object SyntaxTest {
     }
     val isNeg  = segments("neg")
     val isSkip = (
-         (input startsWith "#!")
-      || (input.lines exists (_ matches unicodeRegex))
-      || segments("failing")
+         (fs contains "pos/t8146a.scala")
+      || (fs contains "spire/std/tuples.scala")
+      || ((fs contains "/FastParsers/") && (fs contains "/lms/"))
+      || (fs contains "JsonParseGen2")
     )
     lazy val parser = new ScalaSyntax(input)
 

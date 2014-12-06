@@ -105,22 +105,22 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     def MaybeOneNewline: R0 = if (semicolonInference) OneNLMax else MATCH
     def MaybeNotNL: R0      = if (semicolonInference) NotNL else MATCH
 
-    def AssignExpr = rule( NotSensitive.SimpleExpr ~ Equals ~ Expr )
-    def DoExpr     = rule( `do` ~ Expr ~ optSemi ~ `while` ~ ParenExpr )
-    def ForExpr    = rule( `for` ~ EnumeratorsPart ~ opt(`yield`) ~ Expr )
-    def IfExpr     = rule( `if` ~ ParenExpr ~ Expr ~ opt(optSemi ~ ElsePart) )
+    def AssignExpr = rule( NotSensitive.SimpleExpr ~ Equals ~!~ Expr )
+    def DoExpr     = rule( `do` ~!~ Expr ~ optSemi ~ `while` ~ ParenExpr )
+    def ForExpr    = rule( `for` ~!~ EnumeratorsPart ~ opt(`yield`) ~ Expr )
+    def IfExpr     = rule( `if` ~!~ ParenExpr ~ Expr ~ opt(optSemi ~ ElsePart) )
     def NewExpr    = rule( `new` ~ ExtendsOrNew )
-    def ReturnExpr = rule( `return` ~ opt(Expr) )
-    def ThrowExpr  = rule( `throw` ~ Expr )
+    def ReturnExpr = rule( `return` ~!~ opt(Expr) )
+    def ThrowExpr  = rule( `throw` ~!~ Expr )
     def TryExpr    = rule( TryPart ~ opt(CatchPart) ~ opt(FinPart) )
     def TupleExpr  = rule( '(' ~ opt(Exprs) ~ ')' )
-    def WhileExpr  = rule( `while` ~ ParenExpr ~ Expr )
+    def WhileExpr  = rule( `while` ~!~ ParenExpr ~ Expr )
 
-    def TryPart   = rule( `try` ~ Expr )
-    def CatchPart = rule( `catch` ~ Expr )
-    def FinPart   = rule( `finally` ~ Expr )
-    def ElsePart  = rule( `else` ~ Expr )
-    def MatchPart = rule( `match` ~ '{' ~ CaseClauses ~ '}' )
+    def TryPart   = rule( `try` ~!~ Expr )
+    def CatchPart = rule( `catch` ~!~ Expr )
+    def FinPart   = rule( `finally` ~!~ Expr )
+    def ElsePart  = rule( `else` ~!~ Expr )
+    def MatchPart = rule( `match` ~!~ '{' ~ CaseClauses ~ '}' )
 
     def Enumerators     = rule( Generator ~ rep(Semis ~ Enumerator) ~ WL )
     def Generator: R0   = rule( PatternAlternative ~ LArrow ~ Expr ~ opt(Guard) )
@@ -164,7 +164,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
       | ThrowExpr
       | ReturnExpr
       | AssignExpr
-      | PostfixExpr ~ opt( MatchPart | Ascription )
+      | PostfixExpr ~!~ opt( MatchPart | Ascription )
     )
   }
 
