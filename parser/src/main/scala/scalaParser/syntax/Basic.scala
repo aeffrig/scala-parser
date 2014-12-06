@@ -13,6 +13,7 @@ trait Basic {
 
   object Basic {
     def UnicodeEscape = rule( "\\u" ~ 4.times(HexDigit) )
+    // def UnicodeUpper = rule(
 
     def AlphaNum       = rule( Letter | Digit )
     def DelimiterChar  = rule( anyOf("'\".;,") )
@@ -28,7 +29,7 @@ trait Basic {
     def Newline        = rule( "\r\n" | "\n" )
     def NewlineOrEnd   = rule( Newline | EOI )
     def OctalEscape    = rule( "\\" ~ Digit ~ opt(Digit) ~ opt(Digit) )
-    def OperatorChar   = rule( '/' ~ !'/' | anyOf("\\!#$%&*+-:<=>?@^|~") | !'/' ~ isOperator )
+    def OperatorChar   = rule( anyOf("\\!#$%&*+-:<=>?@^|~") | !"//" ~ isOperator )
     def Parentheses    = rule( anyOf("()[]{}") )
     def PrintableChar  = CharPredicate from isPrintableChar
     def RestOfLine     = rule( zeroOrMore(!Newline ~ ANY) ~ &(NewlineOrEnd) )

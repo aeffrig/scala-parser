@@ -21,6 +21,17 @@ abstract class PspParser extends Parser with Basic with Identifiers with Literal
 }
 
 class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with Xml {
+  /** This is horrific but seems necessary in current parboiled.
+   */
+  val EarlyDef        = () => Definition
+  val TopStat         = () => rule( Import | PackageDef | TemplateDef )
+  val BlockStat       = () => rule( Import | Definition | ExprSensitive )
+  val TemplateStat    = () => rule( BlockStat() | Declaration )
+  val FlatPackageStat = () => rule( Package ~ QualId ~ !BlockStart )
+  lazy val BlockStatSeq    = semiSeparated(BlockStat)
+  lazy val TopStatSeq      = semiSeparated(TopStat)
+  lazy val TemplateStatSeq = semiSeparated(TemplateStat)
+  lazy val PackageStatSeq  = semiSeparated(FlatPackageStat)
 
   /**
    * By default, all strings and characters greedily
@@ -44,7 +55,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def SuperType    = rule( `>:` )
   def Uscore       = rule( `_` )
   def WildcardStar = rule( Uscore ~ Star )
-  def Variance     = rule( "+" | "-" )
+  def Variance     = rule( Plus | Minus )
   def VBound       = rule( `<%` )
 
   /**
@@ -249,12 +260,11 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def CaseClause: R0     = rule( `case` ~ Pattern ~ opt(NotSensitive.Guard) ~ RArrow ~ ImpliedBlock )
   def CaseClauses: R0    = rule( rep1(CaseClause) )
   def ConstructorMods    = rule( NotNL ~ AnnotationsAndMods )
-  def EarlyDefs          = rule( inBraces(() => Definition) ~ `with` )
+  def EarlyDefs          = rule( inBraces(EarlyDef) ~ `with` )
   def ExprSensitive      = rule( IsSensitive.Expr )
   def Exprs: R0          = rule( rep1sep(Expr, Comma) )
   def ExtendsClause      = rule( `extends` ~ ExtendsOrNew )
   def ExtendsOrNew       = oneOrBoth(Parents, Template)
-  def FlatPackageStat    = rule( Package ~ QualId ~ !BlockStart )
   def Import             = rule( `import` ~ ImportExprs )
   def ImportExpr         = rule( StableId ~ opt(ImportSuffix) )
   def ImportExprs        = rule( rep1sep(ImportExpr, Comma) )
@@ -268,7 +278,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def OptType            = rule( opt(Colon ~ Type) )
   def OptParamType       = rule( opt(Colon ~ ParamType) )
   def ParamType: R0      = rule( Type ~ opt(Star) | RArrow ~ Type )
-  def PackageDef         = rule( Package ~ QualId ~ inBraces(() => TopStat) )
+  def PackageDef: R0     = rule( Package ~ QualId ~ inBraces(TopStat) )
   def ParenExpr          = rule( '(' ~ Expr ~ ')' )
   def Parents            = rule( opt(EarlyDefs) ~ IntersectionType )
   def Patterns           = rule( rep1sep(BindablePattern, Comma) )
@@ -276,23 +286,12 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def Template           = rule( '{' ~ opt(SelfType) ~ TemplateStatSeq ~ '}' )
   def TemplateDef        = rule( AnnotationsAndMods ~ Unmodified.TemplateDef )
   def TemplateOpt        = rule( ExtendsClause | opt(Template) )
-  def BlockStatSeq       = semiSeparated(() => BlockStat)
-  def TopStatSeq         = semiSeparated(() => TopStat)
-  def TemplateStatSeq    = semiSeparated(() => TemplateStat)
-  def PackageStatSeq     = semiSeparated(() => FlatPackageStat)
   def TypeArgs           = inBrackets(TypeArg)
   def ValOrVar           = rule( `val` | `var` )
   def VarargsStar        = rule( Colon ~ WildcardStar )
 
   def optSemi  = rule( opt(Semi) )
   def optSemis = rule( opt(Semis) )
-
-  def TemplateStat: R0   = rule( BlockStat | Declaration )
-  def BlockStat: R0  = rule(
-      Import
-    | Definition
-    | ExprSensitive
-  )
 
   def errorContextWidth: Int            = 1
   def errorCharMarkup(ch: Char): String = {
@@ -358,11 +357,6 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     | `case` ~ `class`
     | `case` ~ `object`
     | `package` ~ `object`
-  )
-  def TopStat: R0 = rule(
-      Import
-    | PackageDef
-    | TemplateDef
   )
 
   private def BlockStart = rule( &( WS ~ '{' ) )

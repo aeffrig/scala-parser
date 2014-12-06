@@ -27,6 +27,9 @@ trait Keywords {
   def `#`  = rule( operator("#") )
   def `|`  = rule( operator("|") )
 
+  def Plus  = rule( operator("+") )
+  def Minus = rule( operator("-") )
+
   def `_`         = rule( keyword("_") )
   def `abstract`  = rule( keyword("abstract") )
   def `case`      = rule( keyword("case") )
