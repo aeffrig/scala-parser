@@ -23,8 +23,10 @@ object SyntaxTest {
   def scalaSources = "."
 
   def scalaPaths(root: Path): Seq[Path] = (
-    scala.util.Random.shuffle(
-      Process(Seq("find", s"$root/", "-type", "f", "-name", "*.scala", "-print")).lines map (x => path(x))
+    if (root hasExtension "scala") Seq(root)
+    else /*scala.util.Random.shuffle*/ (
+      Process(Seq("find", s"$root/", "-type", "f", "-name", "*.scala", "-print")).lines
+        filterNot (_ contains "/neg/") map (x => path(x))
     )
   )
 
@@ -51,14 +53,9 @@ object SyntaxTest {
       }
       catch { case _: Exception => return Skip }
     }
-    val isNeg  = segments("neg")
-    val isSkip = (
-         (fs contains "pos/t8146a.scala")
-      || (fs contains "spire/std/tuples.scala")
-      || ((fs contains "/FastParsers/") && (fs contains "/lms/"))
-      || (fs contains "JsonParseGen2")
-    )
-    lazy val parser = new ScalaSyntax(input)
+    val isNeg       = segments("neg")
+    val isSkip      = false
+    lazy val parser = newSyntax(input)
 
     print(s"[%6s] $maxFileFmt  ".format(input.length, path_s))
 

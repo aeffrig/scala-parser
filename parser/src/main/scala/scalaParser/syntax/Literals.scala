@@ -46,7 +46,7 @@ trait Literals {
     def SingleLineComment    = rule( "//" ~ RestOfLine )
 
     def BooleanLiteral   = rule( `true` | `false` )
-    def CharLiteralChars = rule( UnicodeEscape | OctalEscape | EscapedChar | !Backslash ~ ANY ) //PrintableChar )
+    def CharLiteralChars = rule( UnicodeEscape | OctalEscape | EscapedChar | noneOf("\\") )
     def CharacterLiteral = rule( ''' ~ CharLiteralChars ~ ''' )
     def EscapedChar      = rule( Backslash ~ anyOf(Escapable) )
     def HexLiteral       = rule( HexNumeral ~ optLong )
@@ -84,7 +84,7 @@ trait Literals {
           NumericLiteral
         | BooleanLiteral
         | CharacterLiteral
-        | Identifiers.Id ~ ( TripleInterp | SingleInterp )
+        | Identifiers.Id ~ ( TripleInterp | "\"\\\"" | SingleInterp )
         | TripleString
         | SingleString
         | SymbolLiteral

@@ -6,7 +6,7 @@ import psp.std._, api._
 object Main {
   def parse(path: Path) = {
     val input  = path.slurp()
-    val syntax = new ScalaSyntax(input)
+    val syntax = newSyntax(input)
     syntax.CompilationUnit.run() match {
       case scala.util.Success(`input`)       => println("Parsed %s chars.".format(input.length))
       case scala.util.Success(result)        => println("Failed: parsed %s/%s chars.".format(result.length, input.length))

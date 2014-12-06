@@ -12,8 +12,8 @@ trait Keywords {
    *  order for it to be a keyword. Operators have different delimiting
    *  rules than do letters.
    */
-  private def keyword(s: String)  = rule( WL ~ str(s) ~ !Basic.AlphaNum )
-  private def operator(s: String) = rule( WL ~ str(s) ~ !Basic.OperatorChar )
+  private def keyword(s: String)  = rule( WL ~ atomic(str(s)) ~ !Basic.AlphaNum )
+  private def operator(s: String) = rule( WL ~ atomic(str(s)) ~ !Basic.OperatorChar )
 
   def `:`  = rule( operator(":") )
   def `*`  = rule( operator("*") )
@@ -27,8 +27,11 @@ trait Keywords {
   def `#`  = rule( operator("#") )
   def `|`  = rule( operator("|") )
 
-  def Plus  = rule( operator("+") )
-  def Minus = rule( operator("-") )
+  def Plus           = rule( operator("+") )
+  def Minus          = rule( operator("-") )
+  def Tilde          = rule( operator("~") )
+  def Bang           = rule( operator("!") )
+  def PrefixOperator = rule( Plus | Minus | Tilde | Bang )
 
   def `_`         = rule( keyword("_") )
   def `abstract`  = rule( keyword("abstract") )
