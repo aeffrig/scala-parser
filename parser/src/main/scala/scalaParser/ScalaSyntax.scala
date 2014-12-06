@@ -280,12 +280,17 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   // but we want to be able to do other things such as
   //   case x: Foo[t <: Bar] => (x: t) => 1
   //
-  def TypeArg          = rule( Type ~ TypeBounds )
-  def TypeParam: R0    = rule( IdOrUscore ~ TypeParamClauses ~ MethodTypeBounds )
-  def TypeBounds       = rule( opt(SuperType ~ Type) ~ opt(SubType ~ Type) )
-  def MethodTypeBounds = rule( TypeBounds ~ ViewBounds ~ ContextBounds )
-  def ContextBounds    = rule( rep(Colon ~ Type) )
-  def ViewBounds       = rule( rep(VBound ~ Type) )
+  def TypeArg          = rule( Type ~ TypeConstraints )
+  def TypeParam: R0    = rule( IdOrUscore ~ TypeParamClauses ~ TypeConstraints )
+
+  def TypeConstraints = rule( rep(TypeConstraint) )
+  def TypeConstraint  = rule(
+      SubType ~ Type
+    | SuperType ~ Type
+    | VBound ~ Type
+    | Colon ~ Type
+    | Equals ~ Type
+  )
 
   /** Highest level rules. */
   def Declaration  = rule( AnnotationsAndMods ~ Unmodified.Dcl )
@@ -388,7 +393,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
       | TemplateDef
     )
     def Dcl = rule(
-        TypeDefIntro ~ TypeBounds
+        TypeDefIntro ~ TypeConstraints
       | ValOrVar ~ NamesAndType
       | FunDefIntro ~ OptType
     )
