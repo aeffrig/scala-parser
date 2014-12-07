@@ -58,11 +58,11 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   val FlatPackageStat    : F0R0 = () => rule( Package ~ QualId ~ !BlockStart )
   val IntersectionType   : F0R0 = () => rule( rep1sep(ParentType, `with`) )
   val NameAndOptType     : F0R0 = () => rule( IdOrUscore ~ OptType )
-  val UnmodifiedDef      : F0R0 = () => rule( Unmodified.Def )
+  val UnmodifiedDefs     : F0R0 = () => rule( inBraces(() => Unmodified.Def) )
   val VariantTypeParam   : F0R0 = () => rule( Annotations ~ opt(WL ~ Variance) ~ TypeParam )
   val Parents            : F0R0 = () => rule( opt(EarlyDefs) ~ IntersectionType() )
 
-  val Refinement     : F0R0 = () => rule( OneNLMax ~ inBraces(UnmodifiedDef) )
+  val Refinement     : F0R0 = () => rule( OneNLMax ~ UnmodifiedDefs() )
   val BlockStatSeq   : F0R0 = () => semiSeparated(BlockStat)
   val TopStatSeq     : F0R0 = () => semiSeparated(TopStat)
   val PackageStatSeq : F0R0 = () => semiSeparated(FlatPackageStat) // package foo.bar statements at the very top level
@@ -80,10 +80,10 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
 
   def CompUnit    = rule( PackageStatSeq() ~ TopStatSeq() ~ WL )
   def Expr        = rule( InExpr.Expr )
-  def FunArgTypes = rule( InfixType | inParens(ParamTypeF0) )
   def MemberDef   = rule( AnnotationsAndMods ~ Unmodified.Def )
   def Pattern     = rule( rep1sep(PatternAlternative, Pipe) )
-  def Type: R0    = rule( InfixType ~ opt(ExistentialClause | RArrow ~ Type) )
+  def TemplateDef = rule( AnnotationsAndMods ~ Unmodified.TemplateDef )
+  def Type: R0    = rule( InfixType ~ opt(ExistentialPart | RArrow ~ Type) )
 
   /**
    * By default, all strings and characters greedily
@@ -93,11 +93,12 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   implicit def wspChar(s: Char): R0  = rule( WL ~ ch(s) )
 
   def At            = rule( `@` )
+  def CaseOrPackage = rule( `case` | `package` )
   def Colon         = rule( `:` )
   def Comma         = rule( ',' )
   def Dot           = rule( '.' )
-  def Hash          = rule( `#` )
   def Equals        = rule( `=` )
+  def Hash          = rule( `#` )
   def LArrow        = rule( `<-` )
   def Package       = rule( `package` )
   def Pipe          = rule( `|` )
@@ -106,10 +107,10 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def SubType       = rule( `<:` )
   def SuperType     = rule( `>:` )
   def Uscore        = rule( `_` )
-  def WildcardStar  = rule( Uscore ~ Star )
+  def ValOrVar      = rule( `val` | `var` )
   def Variance      = rule( Plus | Minus )
   def ViewBound     = rule( `<%` )
-  def CaseOrPackage = rule( `case` | `package` )
+  def WildcardStar  = rule( Uscore ~ Star )
 
   /**
    * helper printing function
@@ -144,26 +145,33 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def VarId            = rule( WL ~ Identifiers.VarId )
   def VarIdOrUscore    = rule( VarId | Uscore )
 
-  /** Type rules.
+  /** Type rules (involving the direct expression of types.)
    */
-  def AnnotType         = rule( SimpleType ~ rep(NotNL ~ Annotation) )
-  def AtomicType        = rule( WildcardType | ProductType | SingletonType | StableId )
-  def CompoundType      = oneOrBoth(IntersectionType, Refinement)
-  def ExistentialClause = rule( `forSome` ~ inBraces(UnmodifiedDef) )
-  def InfixType: R0     = rule( rep1sep(CompoundType, NotNL ~ Id ~ OneNLMax) )
-  def ParentType        = rule( AnnotType ~ rep(NotNL ~ ArgumentExprs) )
-  def ProductType       = rule( '(' ~ repsep(ParamType, Comma) ~ ')' )
-  def SimpleType        = rule( AtomicType ~ rep(TypeSuffix) )
-  def SingletonType     = rule( StableId ~ Dot ~ `type` )
-  def TypeProjection    = rule( Hash ~ Id )
-  def TypeSuffix        = rule( TypeArgs | TypeProjection )
-  def WildcardType      = rule( Uscore )
+  def AnnotType       = rule( SimpleType ~ rep(NotNL ~ Annotation) )
+  def AtomicType      = rule( WildcardType | ProductType | SingletonType | StableId )
+  def CompoundType    = oneOrBoth(IntersectionType, Refinement)
+  def ExistentialPart = rule( `forSome` ~ UnmodifiedDefs() )
+  def FunArgTypes     = rule( InfixType | inParens(ParamTypeF0) )
+  def FunctionType    = rule( FunArgTypes ~ RArrow ~ Type )
+  def InfixType: R0   = rule( rep1sep(CompoundType, NotNL ~ Id ~ OneNLMax) )
+  def ParamType: R0   = rule( Type ~ opt(Star) | RArrow ~ Type )
+  def ParentType      = rule( AnnotType ~ rep(NotNL ~ ArgumentExprs) )
+  def ProductType     = rule( '(' ~ repsep(ParamType, Comma) ~ ')' )
+  def SimpleType      = rule( AtomicType ~ rep(TypeSuffix) )
+  def SingletonType   = rule( StableId ~ Dot ~ `type` )
+  def TypeArg         = rule( Type ~ TypeConstraints )
+  def TypeArgs        = rule( '[' ~ TypeArg ~ rep(Comma ~ TypeArg) ~ ']' )
+  def TypeParam: R0   = rule( IdOrUscore ~ TypeConstraints )
+  def TypeProjection  = rule( Hash ~ Id )
+  def TypeSuffix      = rule( TypeArgs | TypeProjection )
+  def WildcardType    = rule( Uscore )
 
   /** Pattern rules.
    */
   def BindablePattern        = rule( opt(PatternBinding) ~ ( WildcardStar | InfixPattern ) )
   def CaseClause: R0         = rule( `case` ~ Pattern ~ opt(InExpr.Guard) ~ RArrow ~ ImpliedBlock )
   def CaseClauses: R0        = rule( rep1(CaseClause) )
+  def CaseBlock              = rule( '{' ~ rep1(CaseClause) ~ '}' )
   def ConstructorPattern     = rule( StableId ~ opt(TypeArgs) ~ opt(ProductPattern) )
   def InfixPattern           = rule( rep1sep(SimplePattern, Id) )
   def PatternAlternative: R0 = rule( TypedPattern | BindablePattern )
@@ -202,7 +210,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     def ForExpr    = rule( `for`     ~!~ EnumeratorsPart ~ opt(`yield`) ~ Expr )
     def IfExpr     = rule( `if`      ~!~ ParenExpr ~ Expr ~ opt(OptSemi ~ ElsePart) )
     def Guard      = rule( `if`      ~!~ PostfixExpr )
-    def MatchPart  = rule( `match`   ~!~ '{' ~ CaseClauses ~ '}' )
+    def MatchPart  = rule( `match`   ~!~ CaseBlock )
     def NewExpr    = rule( `new`     ~!~ ExtendsOrNew )
     def ReturnExpr = rule( `return`  ~!~ opt(Expr) )
     def ThrowExpr  = rule( `throw`   ~!~ Expr )
@@ -262,34 +270,15 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     | `implicit` ~ Id ~ OptInfixType
     | IdOrUscore ~ OptInfixType
   )
-  def Block: R0           = ImpliedBlock
-  def ImpliedBlock: R0    = rule( OptSemis ~ BlockStatSeq() ~ BlockEnd )
-  def ExplicitBlock: R0   = rule( OneNLMax ~ '{' ~ ( CaseClauses | BlockStatSeq() ) ~ '}' )
-  def AnnotArgument: R0   = rule( opt(Id ~ Equals) ~ ( !(Id ~ Colon) ~ Expr ) )
-  def AnnotationArguments = rule( '(' ~ repsep(AnnotArgument, Comma) ~ ')' )
 
   def ArgumentExprs: R0 = rule(
       '(' ~ opt(Exprs ~ opt(VarargsStar)) ~ ')'
     | ExplicitBlock
   )
-
-  // In scala it would suffice for TypeBounds to follow underscore, since the only
-  // place you can use it is e.g. Foo[_ <: Bar]
-  //
-  // but we want to be able to do other things such as
-  //   case x: Foo[t <: Bar] => (x: t) => 1
-  //
-  def TypeArg          = rule( Type ~ TypeConstraints )
-  def TypeParam: R0    = rule( IdOrUscore ~ TypeConstraints )
-  def Ascription       = rule( Colon ~ ( WildcardStar | Type | ValueAnnotations ) )
-  def ValueAnnotations = rule( rep1(Annotation) )  // e.g. (x: @switch) match { ... }
-
   def ValueConstraint = rule(
       Colon ~ ParamType
     | Equals ~ opt(`macro`) ~ ExprSensitive
   )
-  def ValueConstraints = rule( rep(ValueConstraint) )
-  def TypeConstraints  = rule( rep(TypeConstraint) )
   def TypeConstraint   = rule(
       SubType ~ Type
     | SuperType ~ Type
@@ -299,48 +288,48 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     | TypeTypeParamList
   )
 
-  /** Params */
-  def TypeTypeParamList    = inBrackets(VariantTypeParam)
-  def TypeTypeParamLists   = rule( rep(TypeTypeParamList) )
-  def MethodTypeParamList  = inBrackets(AnnotatedTypeParam)
-  def MethodTypeParamLists = rule( rep(MethodTypeParamList) )
+  def AccessModifier       = rule( ( `private` | `protected` ) ~ opt(Qualifier) )
+  def AnnotArgument: R0    = rule( opt(Id ~ Equals) ~ ( !(Id ~ Colon) ~ Expr ) )
+  def Annotation           = rule( At ~ SimpleType ~ opt(NotNL ~ AnnotationArguments) ) // needs SimpleType to accept type arguments
+  def AnnotationArguments  = rule( '(' ~ repsep(AnnotArgument, Comma) ~ ')' )
+  def Annotations          = rule( rep(Annotation) )
+  def AnnotationsAndMods   = rule( rep(Annotation ~ OneNLMax) ~ rep(Modifier) )
+  def Ascription           = rule( Colon ~ ( WildcardStar | Type | ValueAnnotations ) )
+  def Block: R0            = ImpliedBlock
+  def ClassObjectOrTrait   = rule( `class` | `object` | `trait` )
+  def ConstructorMods      = rule( rep(Annotation ~ NotNL) ~ rep(Modifier) )
+  def EarlyDefs            = rule( inBraces(() => MemberDef) ~ `with` )
+  def ExplicitBlock: R0    = rule( OneNLMax ~ ( CaseBlock | '{' ~ BlockStatSeq() ~ '}' ) )
+  def ExprSensitive        = rule( InBlock.Expr )
+  def Exprs: R0            = rule( rep1sep(WL ~ Expr, Comma) )
+  def ExtendsOrNew         = oneOrBoth(Parents, Template)
+  def ImpliedBlock: R0     = rule( OptSemis ~ BlockStatSeq() ~ BlockEnd )
+  def Import               = rule( `import` ~ ImportExprs )
+  def ImportExpr           = rule( StableId ~ opt(ImportSuffix) )
+  def ImportExprs          = rule( rep1sep(ImportExpr, Comma) )
+  def ImportSelector       = rule( IdOrUscore ~ opt(RArrow ~ IdOrUscore) )
+  def ImportSelectors      = rule( '{' ~ rep1sep(ImportSelector, Comma) ~ '}' )
+  def ImportSuffix         = rule( Dot ~ (Uscore | ImportSelectors) )
+  def MethodParam          = rule( AnnotationsAndMods ~ opt(ValOrVar) ~ Id ~ rep(ValueConstraint) )
   def MethodParamList      = rule( '(' ~ opt(`implicit`) ~ repsep(MethodParam, Comma) ~ ')' )
   def MethodParamLists     = rule( rep(MethodParamList) )
-  def MethodParam          = rule( AnnotationsAndMods ~ opt(ValOrVar) ~ Id ~ rep(ValueConstraint) )
-
-  def FunctionType = rule( FunArgTypes ~ RArrow ~ Type )
-
-
-  def AccessModifier     = rule( ( `private` | `protected` ) ~ opt(Qualifier) )
-  def Annotation         = rule( At ~ SimpleType ~ opt(NotNL ~ AnnotationArguments) ) // needs SimpleType to accept type arguments
-  def Annotations        = rule( rep(Annotation) )
-  def AnnotationsAndMods = rule( rep(Annotation ~ OneNLMax) ~ rep(Modifier) )
-  def ConstructorMods    = rule( rep(Annotation ~ NotNL) ~ rep(Modifier) )
-  def EarlyDefs          = rule( inBraces(() => MemberDef) ~ `with` )
-  def ExprSensitive      = rule( InBlock.Expr )
-  def Exprs: R0          = rule( rep1sep(WL ~ Expr, Comma) )
-  def ExtendsOrNew       = oneOrBoth(Parents, Template)
-  def Import             = rule( `import` ~ ImportExprs )
-  def ImportExpr         = rule( StableId ~ opt(ImportSuffix) )
-  def ImportExprs        = rule( rep1sep(ImportExpr, Comma) )
-  def ImportSelector     = rule( IdOrUscore ~ opt(RArrow ~ IdOrUscore) )
-  def ImportSelectors    = rule( '{' ~ rep1sep(ImportSelector, Comma) ~ '}' )
-  def ImportSuffix       = rule( Dot ~ (Uscore | ImportSelectors) )
-  def Modifier           = rule( `abstract` | `final` | `sealed` | `implicit` | `lazy` | `override` | AccessModifier )
-  def NamesAndType       = rule( rep1sep(Id, Comma) ~ Colon ~ Type )
-  def OptEquals          = rule( opt(Equals ~ Expr) )
-  def OptInfixType       = rule( opt(Colon ~ InfixType) )
-  def OptType            = rule( opt(Colon ~ Type) )
-  def OptParamType       = rule( opt(Colon ~ ParamType) )
-  def ParamType: R0      = rule( Type ~ opt(Star) | RArrow ~ Type )
-  def PackageDef: R0     = rule( Package ~ QualId ~ inBraces(TopStat) )
-  def ParenExpr          = rule( '(' ~ Expr ~ ')' )
-  def SelfType: R0       = rule( IdOrUscoreOrThis ~ OptInfixType ~ RArrow )
-  def TemplateDef        = rule( AnnotationsAndMods ~ Unmodified.TemplateDef )
-  def TypeArgs           = rule( '[' ~ TypeArg ~ rep(Comma ~ TypeArg) ~ ']' )
-  def ValOrVar           = rule( `val` | `var` )
-  def ClassObjectOrTrait = rule( `class` | `object` | `trait` )
-  def VarargsStar        = rule( Colon ~ WildcardStar )
+  def MethodTypeParamList  = inBrackets(AnnotatedTypeParam)
+  def MethodTypeParamLists = rule( rep(MethodTypeParamList) )
+  def Modifier             = rule( `abstract` | `final` | `sealed` | `implicit` | `lazy` | `override` | AccessModifier )
+  def NamesAndType         = rule( rep1sep(Id, Comma) ~ Colon ~ Type )
+  def OptEquals            = rule( opt(Equals ~ Expr) )
+  def OptInfixType         = rule( opt(Colon ~ InfixType) )
+  def OptParamType         = rule( opt(Colon ~ ParamType) )
+  def OptType              = rule( opt(Colon ~ Type) )
+  def PackageDef: R0       = rule( Package ~ QualId ~ inBraces(TopStat) )
+  def ParenExpr            = rule( '(' ~ Expr ~ ')' )
+  def SelfType: R0         = rule( IdOrUscoreOrThis ~ OptInfixType ~ RArrow )
+  def TypeConstraints      = rule( rep(TypeConstraint) )
+  def TypeTypeParamList    = inBrackets(VariantTypeParam)
+  def TypeTypeParamLists   = rule( rep(TypeTypeParamList) )
+  def ValueAnnotations     = rule( rep1(Annotation) )  // e.g. (x: @switch) match { ... }
+  def ValueConstraints     = rule( rep(ValueConstraint) )
+  def VarargsStar          = rule( Colon ~ WildcardStar )
 
   def errorContextWidth: Int            = 1
   def errorCharMarkup(ch: Char): String = {
@@ -379,10 +368,10 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     private def ExtendsClause     = rule( ( `extends` | SubType ) ~ ExtendsOrNew )
     private def TemplateOpt       = rule( ExtendsClause | opt(Template()) )
 
-    def TemplateDef     = rule( TemplateIntro ~ TemplateOpt )
-    def ValDef          = rule( ValOrVar ~ Patterns ~ ValueConstraints )
-    def TypeDef         = rule( `type` ~ Id ~ TypeConstraints )
-    def DefDef          = rule( DefIntro ~ DefBody )
+    def DefDef      = rule( DefIntro ~ DefBody )
+    def TemplateDef = rule( TemplateIntro ~ TemplateOpt )
+    def TypeDef     = rule( `type` ~ Id ~ TypeConstraints )
+    def ValDef      = rule( ValOrVar ~ Patterns ~ ValueConstraints )
 
     /** Want a case trait? Sure. Need a package class? Sure, why not.
      */
