@@ -149,20 +149,21 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     def OptionalNewlineInBlock: R0 = if (inBlock) OneNLMax else MATCH
     def NoNewlineInBlock: R0       = if (inBlock) NotNL else MATCH
 
-    def DoExpr     = rule( `do` ~ Expr ~ optSemi ~ `while` ~ ParenExpr )
-    def ElsePart   = rule( `else` ~ Expr )
-    def FinPart    = rule( `finally` ~ Expr )
-    def ForExpr    = rule( `for` ~ EnumeratorsPart ~ opt(`yield`) ~ Expr )
-    def IfExpr     = rule( `if` ~ ParenExpr ~ Expr ~ opt(optSemi ~ ElsePart) )
-    def Guard      = rule( `if` ~ PostfixExpr )
-    def MatchPart  = rule( `match` ~ '{' ~ CaseClauses ~ '}' )
-    def NewExpr    = rule( `new` ~ ExtendsOrNew )
-    def ReturnExpr = rule( `return` ~ opt(Expr) )
-    def ThrowExpr  = rule( `throw` ~ Expr )
-    def TryExpr    = rule( `try` ~ Expr ~ ( `catch` ~ Expr ~ opt(FinPart) | FinPart | MATCH /** XXX scala bug - naked try **/ ) )
-    def WhileExpr  = rule( `while` ~ ParenExpr ~ Expr )
+    // These rules can all commit after the keyword.
+    def DoExpr     = rule( `do`      ~!~ Expr ~ optSemi ~ `while` ~ ParenExpr )
+    def ElsePart   = rule( `else`    ~!~ Expr )
+    def FinPart    = rule( `finally` ~!~ Expr )
+    def ForExpr    = rule( `for`     ~!~ EnumeratorsPart ~ opt(`yield`) ~ Expr )
+    def IfExpr     = rule( `if`      ~!~ ParenExpr ~ Expr ~ opt(optSemi ~ ElsePart) )
+    def Guard      = rule( `if`      ~!~ PostfixExpr )
+    def MatchPart  = rule( `match`   ~!~ '{' ~ CaseClauses ~ '}' )
+    def NewExpr    = rule( `new`     ~!~ ExtendsOrNew )
+    def ReturnExpr = rule( `return`  ~!~ opt(Expr) )
+    def ThrowExpr  = rule( `throw`   ~!~ Expr )
+    def TryExpr    = rule( `try`     ~!~ Expr ~ ( `catch` ~ Expr ~ opt(FinPart) | FinPart | MATCH /** XXX scala bug - naked try **/ ) )
+    def WhileExpr  = rule( `while`   ~!~ ParenExpr ~ Expr )
 
-    def AssignPart = rule( Equals ~ Expr )
+    def AssignPart  = rule( Equals ~ Expr )
     def ProductExpr = rule( '(' ~ opt(Exprs) ~ ')' )
 
     def ForAssign   = rule( opt(`val`) ~ PatternAlternative ~ Equals ~ Expr ~ opt(Guard) )  // Leading val is deprecated
