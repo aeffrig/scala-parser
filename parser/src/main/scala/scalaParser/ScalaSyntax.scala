@@ -58,7 +58,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   val FlatPackageStat    : F0R0 = () => rule( Package ~ QualId ~ !BlockStart )
   val IntersectionType   : F0R0 = () => rule( rep1sep(ParentType, `with`) )
   val NameAndOptType     : F0R0 = () => rule( IdOrUscore ~ OptType )
-  val RefinementStat     : F0R0 = () => rule( Unmodified.TypeAliasDef | Unmodified.Dcl )
+  val RefinementStat     : F0R0 = () => rule( Unmodified.Dcl )
   val TopStat            : F0R0 = () => rule( Import | PackageDef | TemplateDef )
   val VariantTypeParam   : F0R0 = () => rule( Annotations ~ opt(WL ~ Variance) ~ TypeParam )
 
@@ -269,10 +269,11 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     | VariablePattern
   )
 
-  def FunTypeParamClause     = inBrackets(AnnotatedTypeParam)
-  def VariantTypeParamClause = inBrackets(VariantTypeParam)
-  def TypeParamClauses       = rule( rep(VariantTypeParamClause) )
-  def FunTypeParamClauses    = rule( rep(FunTypeParamClause) )
+  def TypeTypeParamList  = inBrackets(VariantTypeParam)
+  def TypeTypeParamLists = rule( rep(TypeTypeParamList) )
+
+  def MethodTypeParamList  = inBrackets(AnnotatedTypeParam)
+  def MethodTypeParamLists = rule( rep(MethodTypeParamList) )
 
   // In scala it would suffice for TypeBounds to follow underscore, since the only
   // place you can use it is e.g. Foo[_ <: Bar]
@@ -281,14 +282,15 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   //   case x: Foo[t <: Bar] => (x: t) => 1
   //
   def TypeArg          = rule( Type ~ TypeConstraints )
-  def TypeParam: R0    = rule( IdOrUscore ~ TypeParamClauses ~ TypeConstraints )
+  def TypeParam: R0    = rule( IdOrUscore ~ TypeTypeParamLists ~ TypeConstraints )
 
   def ValueConstraint = rule(
       Colon ~ ParamType
     | Equals ~ opt(`macro`) ~ ExprSensitive
   )
-  def TypeConstraints = rule( rep(TypeConstraint) )
-  def TypeConstraint  = rule(
+  def ValueConstraints = rule( rep(ValueConstraint) )
+  def TypeConstraints  = rule( rep(TypeConstraint) )
+  def TypeConstraint   = rule(
       SubType ~ Type
     | SuperType ~ Type
     | VBound ~ Type
@@ -375,19 +377,19 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
 
   object Unmodified {
     // The !RArrow in TemplateParams is defense against "class A" and "() => 5" on consecutive lines.
-    private def FunDefIntro    = rule( `def` ~ IdOrThis ~ FunTypeParamClauses ~ ParamClauses )
-    private def TypeDefIntro   = rule( `type` ~ Id ~ TypeParamClauses )
-    private def TemplateParams = rule( opt(NotNL ~ ConstructorMods) ~ opt(ParamClauses ~ !RArrow) )
-    private def TemplateIntro  = rule( TemplateKeyword ~ Id ~ TypeParamClauses ~ TemplateParams )
-    private def FunBody        = rule( ExplicitBlock | rep(ValueConstraint) )
-    private def EqualsBody     = rule( Equals ~ opt(`macro`) ~ ExprSensitive )
-    private def ExtendsClause  = rule( ( `extends` | SubType ) ~ ExtendsOrNew )
-    private def TemplateOpt    = rule( ExtendsClause | opt(Template) )
+    private def DefDefIntro     = rule( `def` ~ IdOrThis ~ MethodTypeParamLists ~ ParamClauses )
+    // private def TypeDefIntro = rule( `type` ~ Id ~ TypeParamClauses )
+    private def ValueParamLists = rule( opt(NotNL ~ ConstructorMods) ~ opt(ParamClauses ~ !RArrow) )
+    private def TemplateIntro   = rule( TemplateKeyword ~ Id ~ TypeTypeParamLists ~ ValueParamLists )
+    private def DefBody         = rule( ExplicitBlock | ValueConstraints )
+    private def EqualsBody      = rule( Equals ~ opt(`macro`) ~ ExprSensitive )
+    private def ExtendsClause   = rule( ( `extends` | SubType ) ~ ExtendsOrNew )
+    private def TemplateOpt     = rule( ExtendsClause | opt(Template) )
 
-    def TypeAliasDef = rule( TypeDefIntro ~ Equals ~ Type )
-    def TemplateDef  = rule( TemplateIntro ~ TemplateOpt )
-    def PatternDef   = rule( ValOrVar ~ Patterns ~ rep(ValueConstraint) )
-    def FunDef       = rule( FunDefIntro ~ FunBody )
+    def TemplateDef = rule( TemplateIntro ~ TemplateOpt )
+    def ValDef      = rule( ValOrVar ~ Patterns ~ ValueConstraints )
+    def TypeDef     = rule( `type` ~ Id ~ TypeTypeParamLists ~ TypeConstraints )
+    def DefDef      = rule( DefDefIntro ~ DefBody )
 
     def TemplateKeyword = rule(
         `trait`
@@ -398,16 +400,34 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
       | `package` ~ `object`
     )
     def Def: R0 = rule(
-        PatternDef
-      | TypeAliasDef
-      | FunDef
+        ValDef
+      | TypeDef
+      | DefDef
       | TemplateDef
     )
-    def Dcl = rule(
-        TypeDefIntro ~ TypeConstraints
-      | ValOrVar ~ NamesAndType
-      | FunDefIntro ~ OptType
+    def MemberDef   = rule(
+        ValOrVar ~ Patterns ~ ValueConstraints
+      | `type` ~ Id ~ TypeTypeParamLists ~ TypeConstraints
+      | DefDefIntro ~ DefBody
+      | TemplateDef
     )
+    def Dcl = MemberDef
+
+    // def Dcl = rule(
+    //     TypeDefIntro ~ TypeConstraints
+    //   | ValOrVar ~ NamesAndType
+    //   | FunDefIntro ~ OptType
+    // )
+
+    // The !RArrow in TemplateParams is defense against "class A" and "() => 5" on consecutive lines.
+    // private def FunDefIntro    = rule( `def` ~ IdOrThis ~ FunTypeParamClauses ~ ParamClauses )
+    // private def TypeDefIntro   = rule( `type` ~ Id ~ TypeParamClauses )
+    // private def TemplateParams = rule( opt(NotNL ~ ConstructorMods) ~ opt(ParamClauses ~ !RArrow) )
+    // private def TemplateIntro  = rule( TemplateKeyword ~ Id ~ TypeParamClauses ~ TemplateParams )
+    // private def FunBody        = rule( ExplicitBlock | rep(ValueConstraint) )
+    // private def EqualsBody     = rule( Equals ~ opt(`macro`) ~ ExprSensitive )
+    // private def ExtendsClause  = rule( ( `extends` | SubType ) ~ ExtendsOrNew )
+    // private def TemplateOpt    = rule( ExtendsClause | opt(Template) )
   }
 
   private def BlockStart = rule( &( WS ~ '{' ) )
