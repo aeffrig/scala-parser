@@ -1,35 +1,19 @@
-scala-parser
-============
+psp-parser
+==========
 
-scala-parser is a [parboiled2](https://github.com/sirthias/parboiled2) parser for the [Scala programming language](https://github.com/scala/scala). It aims to parse Scala code using the parboiled2 library in a much simpler way than Scala's existing hand-rolled parser.
+Originally a fork of [scala-parser](https://github.com/lihaoyi/scala-parser), which notes that
 
-scala-parser currently parses the vast majority of Scala code. Not supported syntax includes:
+    scala-parser originally was a fork of https://github.com/rcano/sps,
+    but has changed so much that it is completely unrecognizable.
 
-- Unicode Escapes
-- XML Literals
+...right back at you.
 
-However, due to the nature of the parboiled2 library, adding support for either of these things would be pretty straightforward, if tedious.
+It parses all the scala code I have yet attempted - about 40K source files. Pointers to counterexamples greatly appreciated. You can parse all files under a given path with
 
-scala-parser currently has a small unit test suite to prevent regressions of already-fixed bugs in the parser, as well as a more thorough "parse everything" testsuite that runs against all `.scala` files in the following projects:
+    sbt 'test:run /path/to/files'
 
-- https://github.com/scala/scala
-- https://github.com/scala-js/scala-js
-- https://github.com/akka/akka
-- https://github.com/scalaz/scalaz
-- https://github.com/milessabin/shapeless
+A test will only fail if scalac successfully parses a file, but this parser does not.
 
-It parses everything in all of these projects, modulo a blacklist which you can see in the test code which mainly excludes unsupported functionality (mentioned above) and broken Scala files (scripts, negative-tests, etc.)
+Note that I'm quite intentionally parsing a significant superset of existing scala code. A great deal of logic disappears from the parser, and one can easily enforce a (now modularly defined) set of constraints after the fact, and with far superior error messages.
 
-To run tests on all these projects, run
-
-```
-git submodule init
-git submodule update
-sbt test
-```
-
-scala-parser currently only parses code to identify it and does not construct any AST of any sort. However, doing so wouldn't be difficult to implement on top of the existing relatively-straightforward parser implementation.
-
-scala-parser is still a work-in-progress: performance has not been measured, refactorings can still be done, and it still can be made to do more useful things than it currently does (e.g. constructing an AST). However, the fact that it is able to parse all the supported files in the above repositories speaks for its completeness and correctness.
-
-scala-parser originally was a fork of https://github.com/rcano/sps, but has changed so much that it is completely unrecognizable.
+Such parser uniformity opens the door to remove the arbitrarily determined ad hoc restrictions present in the scala language: we don't fail immediately on multiple type parameter lists, named and default type parameters, method definitions without parameter types, annotations and modifiers on any kind of definition, trait constructor parameters, and so on.

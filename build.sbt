@@ -15,7 +15,7 @@ lazy val macros: Project = project settings (common: _*) settings (
 )
 
 lazy val parser: Project = project dependsOn macros settings (common: _*) settings (
-                 name := "scala-parser",
+                 name := "psp-parser",
                  test := (run in Test toTask "").value,
   libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "test"
 )
