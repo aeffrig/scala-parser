@@ -313,7 +313,6 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def EarlyDefs          = rule( inBraces(EarlyDef) ~ `with` )
   def ExprSensitive      = rule( IsSensitive.Expr )
   def Exprs: R0          = rule( rep1sep(WL ~ Expr, Comma) )
-  def ExtendsClause      = rule( ( `extends` | SubType ) ~ ExtendsOrNew )
   def ExtendsOrNew       = oneOrBoth(ParentsF0, TemplateF0)
   def Import             = rule( `import` ~ ImportExprs )
   def ImportExpr         = rule( StableId ~ opt(ImportSuffix) )
@@ -335,7 +334,6 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def SelfType: R0       = rule( IdOrUscoreOrThis ~ OptInfixType ~ RArrow )
   def Template           = rule( '{' ~ opt(SelfType) ~ TemplateStatSeq() ~ '}' )
   def TemplateDef        = rule( AnnotationsAndMods ~ Unmodified.TemplateDef )
-  def TemplateOpt        = rule( ExtendsClause | opt(Template) )
   def TypeArgs           = rule( '[' ~ TypeArg ~ rep(Comma ~ TypeArg) ~ ']' )
   def ValOrVar           = rule( `val` | `var` )
   def VarargsStar        = rule( Colon ~ WildcardStar )
@@ -365,22 +363,24 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   }
 
   /** Recombinators. */
-  def oneOrBoth(p: F0R0, q: F0R0): R0 = rule( p() ~ opt(q()) | q() ) // p() ~ opt(q()) | q() )
+  def oneOrBoth(p: F0R0, q: F0R0): R0 = rule( p() ~ opt(q()) | q() )
   def inBraces(stat: F0R0): R0        = rule( '{' ~ semiSeparated(stat) ~ '}' )
   def inParens(elem: F0R0): R0        = rule( '(' ~ repsep(elem(), Comma) ~ ')' )
   def inBrackets(param: F0R0): R0     = rule( '[' ~ rep1sep(param(), Comma) ~ ']' )
   def semiSeparated(stat: F0R0): R0   = rule( optSemis ~ repsep(stat(), Semis) ~ optSemis )
 
   object Unmodified {
-    private def FunDefIntro    = rule( `def` ~ IdOrThis ~ FunTypeParamClauses ~ ParamClauses )
-    private def TypeDefIntro   = rule( `type` ~ Id ~ TypeParamClauses )
-    private def ClassDefIntro  = rule( ClassKeyword ~ Id ~ TypeParamClauses ~ opt(NotNL ~ ConstructorMods) ~ ParamClauses )
-    private def ObjectDefIntro = rule( ObjectKeyword ~ Id )
-    private def FunBody        = rule( OptType ~ EqualsBody | ExplicitBlock )
-    private def EqualsBody     = rule( Equals ~ opt(`macro`) ~ ExprSensitive )
+    private def FunDefIntro       = rule( `def` ~ IdOrThis ~ FunTypeParamClauses ~ ParamClauses )
+    private def TypeDefIntro      = rule( `type` ~ Id ~ TypeParamClauses )
+    private def TemplateDefParams = rule( opt(NotNL ~ ConstructorMods) ~ opt(ParamClauses ~ !RArrow) )
+    private def TemplateIntro     = rule( TemplateKeyword ~ Id ~ TypeParamClauses ~ TemplateDefParams )
+    private def FunBody           = rule( OptType ~ EqualsBody | ExplicitBlock )
+    private def EqualsBody        = rule( Equals ~ opt(`macro`) ~ ExprSensitive )
+    private def ExtendsClause     = rule( ( `extends` | SubType ) ~ ExtendsOrNew )
+    private def TemplateOpt       = rule( ExtendsClause | Template | MATCH )
 
     def TypeAliasDef        = rule( TypeDefIntro ~ Equals ~ Type )
-    def TemplateDef         = rule( ( ClassDefIntro | ObjectDefIntro ) ~ TemplateOpt )
+    def TemplateDef         = rule( TemplateIntro ~ TemplateOpt )
     def PatternDef          = rule( ValOrVar ~ Patterns ~ OptType ~ EqualsBody )
     def UninitializedVarDef = rule( `var` ~ NamesAndType ~ Equals ~ Uscore )
     def FunDef              = rule( FunDefIntro ~ FunBody )
@@ -399,15 +399,13 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     )
   }
 
-  def ObjectKeyword = rule(
-      `object`
-    | `case` ~ `object`
-    | `package` ~ `object`
-  )
-  def ClassKeyword = rule(
+  def TemplateKeyword = rule(
       `trait`
     | `class`
+    | `object`
+    | `case` ~ `object`
     | `case` ~ `class`
+    | `package` ~ `object`
   )
 
   private def BlockStart = rule( &( WS ~ '{' ) )
