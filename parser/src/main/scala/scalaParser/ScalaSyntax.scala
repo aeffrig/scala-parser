@@ -56,6 +56,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   val RefinementStat     : F0R0 = () => rule( Unmodified.Def )
   val TopStat            : F0R0 = () => rule( Import | PackageDef | TemplateDef )
   val VariantTypeParam   : F0R0 = () => rule( Annotations ~ opt(WL ~ Variance) ~ TypeParam )
+  val Parents            : F0R0 = () => rule( opt(EarlyDefs) ~ IntersectionType() )
 
   val Refinement     : F0R0 = () => rule( OneNLMax ~ inBraces(RefinementStat) )
   val BlockStatSeq   : F0R0 = () => semiSeparated(BlockStat)
@@ -63,7 +64,6 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   val PackageStatSeq : F0R0 = () => semiSeparated(FlatPackageStat)
 
   val ParamTypeF0 = () => ParamType
-  val ParentsF0   = () => Parents
   val PatternF0   = () => Pattern
   val TemplateF0  = () => Template
   val TypeArgF0   = () => TypeArg
@@ -297,7 +297,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def EarlyDefs          = rule( inBraces(() => Definition) ~ `with` )
   def ExprSensitive      = rule( InBlock.Expr )
   def Exprs: R0          = rule( rep1sep(WL ~ Expr, Comma) )
-  def ExtendsOrNew       = oneOrBoth(ParentsF0, TemplateF0)
+  def ExtendsOrNew       = oneOrBoth(Parents, TemplateF0)
   def Import             = rule( `import` ~ ImportExprs )
   def ImportExpr         = rule( StableId ~ opt(ImportSuffix) )
   def ImportExprs        = rule( rep1sep(ImportExpr, Comma) )
@@ -313,7 +313,6 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def ParamType: R0      = rule( Type ~ opt(Star) | RArrow ~ Type )
   def PackageDef: R0     = rule( Package ~ QualId ~ inBraces(TopStat) )
   def ParenExpr          = rule( '(' ~ Expr ~ ')' )
-  def Parents            = rule( opt(EarlyDefs) ~ IntersectionType() )
   def Patterns           = rule( rep1sep(BindablePattern ~ opt(RArrow ~ BindablePattern), Comma) )
   def SelfType: R0       = rule( IdOrUscoreOrThis ~ OptInfixType ~ RArrow )
   def Template           = rule( '{' ~ opt(SelfType) ~ BlockStatSeq() ~ '}' )
