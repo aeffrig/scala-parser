@@ -1,4 +1,5 @@
-package scalaParser
+package psp
+package parser
 package macros
 
 import scala.language.experimental.macros

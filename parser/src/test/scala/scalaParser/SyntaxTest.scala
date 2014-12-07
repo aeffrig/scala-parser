@@ -1,4 +1,5 @@
-package scalaParser
+package psp
+package parser
 
 import org.parboiled2.ParseError
 import psp.std.{ assert => _, _}
@@ -55,7 +56,7 @@ object SyntaxTest {
     }
     val isNeg       = segments("neg")
     val isSkip      = false
-    lazy val parser = newSyntax(input)
+    lazy val parser = newScalaParser(input)
 
     print(s"[%6s] $maxFileFmt  ".format(input.length, path_s))
 

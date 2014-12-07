@@ -1,9 +1,9 @@
-package scalaParser
-package syntax
+package psp
+package parser
 
 import org.parboiled2._
 import CharPredicate.{ HexDigit, AlphaNum, Digit19 }
-import scalaParser.macros.Macros._
+import psp.parser.macros.Macros._
 import java.lang.Integer.parseInt
 import java.lang.{ Character => C }, C.UnicodeBlock
 

@@ -1,4 +1,5 @@
-package scalaParser
+package psp
+package parser
 
 import scala.tools.nsc._
 import scala.reflect.io.AbstractFile

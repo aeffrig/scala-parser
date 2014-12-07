@@ -1,9 +1,9 @@
-package scalaParser
-package syntax
+package psp
+package parser
 
 import macros.Macros._
 import org.parboiled2._
-import scalaParser.macros.Macros._
+import psp.parser.macros.Macros._
 
 trait Xml {
   self: PspParser =>

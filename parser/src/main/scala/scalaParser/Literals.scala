@@ -1,5 +1,5 @@
-package scalaParser
-package syntax
+package psp
+package parser
 
 import org.parboiled2._
 import macros.Macros._

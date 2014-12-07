@@ -1,6 +1,8 @@
+package psp
+
 import org.parboiled2._
 
-package object scalaParser {
+package object parser {
   val any2stringadd = null
 
   type HList = shapeless.HList
@@ -19,7 +21,7 @@ package object scalaParser {
     sb.toString
   }
 
-  def newSyntax(in: ParserInput): ScalaSyntax =
-    if (sys.props contains "debug") new TraceScalaSyntax(in)
-    else new ScalaSyntax(in)
+  def newScalaParser(in: ParserInput): ScalaParser =
+    if (sys.props contains "debug") new TraceScalaParser(in)
+    else new ScalaParser(in)
 }

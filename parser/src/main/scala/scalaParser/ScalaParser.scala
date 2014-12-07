@@ -1,8 +1,8 @@
-package scalaParser
+package psp
+package parser
 
-import syntax._
 import org.parboiled2._
-import scalaParser.macros.Macros._
+import psp.parser.macros.Macros._
 import psp.std.ansi._
 
 abstract class PspParser extends Parser with Basic with Identifiers with Literals {
@@ -25,7 +25,7 @@ abstract class PspParser extends Parser with Basic with Identifiers with Literal
   def WL = rule( atomic(rep(Basic.WhitespaceChar | Literals.Comment | Basic.Newline)) )
 }
 
-class TraceScalaSyntax(in: ParserInput) extends ScalaSyntax(in) {
+class TraceScalaParser(in: ParserInput) extends ScalaParser(in) {
   val counts = scala.collection.mutable.Map[Int, Long]() withDefaultValue 0L
   private val reportFrequency = 100
   private var counted = 0L
@@ -46,7 +46,7 @@ class TraceScalaSyntax(in: ParserInput) extends ScalaSyntax(in) {
 }
 
 // These Function0 wrappers are horrific but seem necessary in current parboiled.
-class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with Xml {
+class ScalaParser(val input: ParserInput) extends PspParser with Keywords with Xml {
   /** Note how nested constructs are differentiated from top level ones.
    *  At the top level, val/var/def/type are disallowed.
    *  Within a template, package definitions are disallowed.
