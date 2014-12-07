@@ -62,10 +62,10 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   val BlockStatSeq   : F0R0 = () => semiSeparated(BlockStat)
   val TopStatSeq     : F0R0 = () => semiSeparated(TopStat)
   val PackageStatSeq : F0R0 = () => semiSeparated(FlatPackageStat)
+  val Template       : F0R0 = () => rule( '{' ~ opt(SelfType) ~ BlockStatSeq() ~ '}' )
 
   val ParamTypeF0 = () => ParamType
   val PatternF0   = () => Pattern
-  val TemplateF0  = () => Template
   val TypeArgF0   = () => TypeArg
 
   /**
@@ -297,7 +297,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def EarlyDefs          = rule( inBraces(() => Definition) ~ `with` )
   def ExprSensitive      = rule( InBlock.Expr )
   def Exprs: R0          = rule( rep1sep(WL ~ Expr, Comma) )
-  def ExtendsOrNew       = oneOrBoth(Parents, TemplateF0)
+  def ExtendsOrNew       = oneOrBoth(Parents, Template)
   def Import             = rule( `import` ~ ImportExprs )
   def ImportExpr         = rule( StableId ~ opt(ImportSuffix) )
   def ImportExprs        = rule( rep1sep(ImportExpr, Comma) )
@@ -315,7 +315,6 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def ParenExpr          = rule( '(' ~ Expr ~ ')' )
   def Patterns           = rule( rep1sep(BindablePattern ~ opt(RArrow ~ BindablePattern), Comma) )
   def SelfType: R0       = rule( IdOrUscoreOrThis ~ OptInfixType ~ RArrow )
-  def Template           = rule( '{' ~ opt(SelfType) ~ BlockStatSeq() ~ '}' )
   def TemplateDef        = rule( AnnotationsAndMods ~ Unmodified.TemplateDef )
   def TypeArgs           = rule( '[' ~ TypeArg ~ rep(Comma ~ TypeArg) ~ ']' )
   def ValOrVar           = rule( `val` | `var` )
@@ -360,7 +359,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     private def DefBody           = rule( ExplicitBlock | ValueConstraints )
     private def EqualsBody        = rule( Equals ~ opt(`macro`) ~ ExprSensitive )
     private def ExtendsClause     = rule( ( `extends` | SubType ) ~ ExtendsOrNew )
-    private def TemplateOpt       = rule( ExtendsClause | opt(Template) )
+    private def TemplateOpt       = rule( ExtendsClause | opt(Template()) )
 
     def TemplateDef     = rule( TemplateIntro ~ TemplateOpt )
     def ValDef          = rule( ValOrVar ~ Patterns ~ ValueConstraints )
