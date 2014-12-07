@@ -45,28 +45,31 @@ class TraceScalaSyntax(in: ParserInput) extends ScalaSyntax(in) {
   override def Type = rule( super.Type ~ run(tick()) )
 }
 
+// These Function0 wrappers are horrific but seem necessary in current parboiled.
 class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with Xml {
-  /** This is horrific but seems necessary in current parboiled.
+  /** Note how nested constructs are differentiated from top level ones.
+   *  At the top level, val/var/def/type are disallowed.
+   *  Within a template, package definitions are disallowed.
    */
+  val TopStat            : F0R0 = () => rule( Import | TemplateDef | PackageDef )
+  val BlockStat          : F0R0 = () => rule( Import | MemberDef | InBlock.Expr )
+
   val AnnotatedTypeParam : F0R0 = () => rule( Annotations ~ TypeParam )
-  val BlockStat          : F0R0 = () => rule( Import | Definition | ExprSensitive )
   val FlatPackageStat    : F0R0 = () => rule( Package ~ QualId ~ !BlockStart )
   val IntersectionType   : F0R0 = () => rule( rep1sep(ParentType, `with`) )
   val NameAndOptType     : F0R0 = () => rule( IdOrUscore ~ OptType )
-  val RefinementStat     : F0R0 = () => rule( Unmodified.Def )
-  val TopStat            : F0R0 = () => rule( Import | PackageDef | TemplateDef )
+  val UnmodifiedDef      : F0R0 = () => rule( Unmodified.Def )
   val VariantTypeParam   : F0R0 = () => rule( Annotations ~ opt(WL ~ Variance) ~ TypeParam )
   val Parents            : F0R0 = () => rule( opt(EarlyDefs) ~ IntersectionType() )
 
-  val Refinement     : F0R0 = () => rule( OneNLMax ~ inBraces(RefinementStat) )
+  val Refinement     : F0R0 = () => rule( OneNLMax ~ inBraces(UnmodifiedDef) )
   val BlockStatSeq   : F0R0 = () => semiSeparated(BlockStat)
   val TopStatSeq     : F0R0 = () => semiSeparated(TopStat)
-  val PackageStatSeq : F0R0 = () => semiSeparated(FlatPackageStat)
+  val PackageStatSeq : F0R0 = () => semiSeparated(FlatPackageStat) // package foo.bar statements at the very top level
   val Template       : F0R0 = () => rule( '{' ~ opt(SelfType) ~ BlockStatSeq() ~ '}' )
 
   val ParamTypeF0 = () => ParamType
   val PatternF0   = () => Pattern
-  val TypeArgF0   = () => TypeArg
 
   /**
    * By default, all strings and characters greedily
@@ -99,19 +102,27 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
    */
   def pr(s: String) = rule( run(println("%4s  %s".format(cursor, s))) )
 
-  def CommentWS        = rule( SpaceWS ~ Literals.Comment ~ SpaceWS ~ Basic.Newline )
+  /** Whitespace rules.
+   */
+
+  def CommentWS    = rule( SpaceWS ~ Literals.Comment ~ SpaceWS ~ Basic.Newline )
+  def NL           = rule( WL ~ Basic.Newline )
+  def OptNL        = rule( WS ~ opt(Basic.Newline) )
+  def Semi         = rule( WS ~ Basic.Semi )
+  def Semis        = rule( rep1(Semi) )
+  def SpaceWS      = rule( rep(Basic.WhitespaceChar) )
+  def NotNL: R0    = rule( &( WS ~ !Basic.Newline ) )
+  def OneNLMax: R0 = rule( OptNL ~ rep(CommentWS) ~ NotNL )
+  def optSemi      = rule( opt(Semi) )
+  def optSemis     = rule( opt(Semis) )
+
   def Id               = rule( WL ~ Identifiers.Id )
   def IdDot            = rule( Id ~ Dot )
   def IdOrThis         = rule( Id | This )
   def IdOrUscore       = rule( Id | Uscore )
   def IdOrUscoreOrThis = rule( Id | Uscore | This )
-  def NL               = rule( WL ~ Basic.Newline )
-  def OptNL            = rule( WS ~ opt(Basic.Newline) )
   def QualId           = rule( WL ~ rep1sep(Id, Dot) )
   def QualSuper        = rule( `super` ~ opt(Qualifier) )
-  def Semi             = rule( WS ~ Basic.Semi )
-  def Semis            = rule( rep1(Semi) )
-  def SpaceWS          = rule( rep(Basic.WhitespaceChar) )
   def This             = rule( `this` )
   def VarId            = rule( WL ~ Identifiers.VarId )
   def VarIdOrUscore    = rule( VarId | Uscore )
@@ -129,9 +140,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
 
   def ValueAnnotations  = rule( rep1(Annotation) )  // e.g. (x: @switch) match { ... }
   def Ascription        = rule( Colon ~ ( WildcardStar | Type | ValueAnnotations ) )
-  def ExistentialClause = rule( `forSome` ~ inBraces(RefinementStat) )
-  def NotNL: R0         = rule( &( WS ~ !Basic.Newline ) )
-  def OneNLMax: R0      = rule( OptNL ~ rep(CommentWS) ~ NotNL )
+  def ExistentialClause = rule( `forSome` ~ inBraces(UnmodifiedDef) )
   def ProductType       = rule( '(' ~ repsep(ParamType, Comma) ~ ')' )
   def SingletonType     = rule( StableId ~ Dot ~ `type` )
   def TypeProjection    = rule( Hash ~ Id )
@@ -278,7 +287,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def MethodParam          = rule( AnnotationsAndMods ~ opt(ValOrVar) ~ Id ~ rep(ValueConstraint) )
 
   /** Highest level rules. */
-  def Definition   = rule( AnnotationsAndMods ~ Unmodified.Def )
+  def MemberDef    = rule( AnnotationsAndMods ~ Unmodified.Def )
   def Type: R0     = rule( InfixType ~ opt(ExistentialClause | RArrow ~ Type) )
   def FunArgTypes  = rule( InfixType | inParens(ParamTypeF0) )
   def Expr         = rule( InExpr.Expr )
@@ -294,7 +303,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def CaseClause: R0     = rule( `case` ~ Pattern ~ opt(InExpr.Guard) ~ RArrow ~ ImpliedBlock )
   def CaseClauses: R0    = rule( rep1(CaseClause) )
   def ConstructorMods    = rule( rep(Annotation ~ NotNL) ~ rep(Modifier) )
-  def EarlyDefs          = rule( inBraces(() => Definition) ~ `with` )
+  def EarlyDefs          = rule( inBraces(() => MemberDef) ~ `with` )
   def ExprSensitive      = rule( InBlock.Expr )
   def Exprs: R0          = rule( rep1sep(WL ~ Expr, Comma) )
   def ExtendsOrNew       = oneOrBoth(Parents, Template)
@@ -320,9 +329,6 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def ValOrVar           = rule( `val` | `var` )
   def ClassObjectOrTrait = rule( `class` | `object` | `trait` )
   def VarargsStar        = rule( Colon ~ WildcardStar )
-
-  def optSemi  = rule( opt(Semi) )
-  def optSemis = rule( opt(Semis) )
 
   def errorContextWidth: Int            = 1
   def errorCharMarkup(ch: Char): String = {
