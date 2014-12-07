@@ -71,6 +71,20 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   val ParamTypeF0 = () => ParamType
   val PatternF0   = () => Pattern
 
+  /** File-level entry point.
+   */
+  def CompilationUnit: Rule1[String] = rule( capture(CompUnit) ~ EOI )
+
+  /** Big Picture rules.
+   */
+
+  def CompUnit    = rule( PackageStatSeq() ~ TopStatSeq() ~ WL )
+  def Expr        = rule( InExpr.Expr )
+  def FunArgTypes = rule( InfixType | inParens(ParamTypeF0) )
+  def MemberDef   = rule( AnnotationsAndMods ~ Unmodified.Def )
+  def Pattern     = rule( rep1sep(PatternAlternative, Pipe) )
+  def Type: R0    = rule( InfixType ~ opt(ExistentialClause | RArrow ~ Type) )
+
   /**
    * By default, all strings and characters greedily
    * capture all whitespace immediately before the token.
@@ -104,18 +118,19 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
 
   /** Whitespace rules.
    */
-
   def CommentWS    = rule( SpaceWS ~ Literals.Comment ~ SpaceWS ~ Basic.Newline )
   def NL           = rule( WL ~ Basic.Newline )
+  def NotNL: R0    = rule( &( WS ~ !Basic.Newline ) )
+  def OneNLMax: R0 = rule( OptNL ~ rep(CommentWS) ~ NotNL )
   def OptNL        = rule( WS ~ opt(Basic.Newline) )
+  def OptSemi      = rule( opt(Semi) )
+  def OptSemis     = rule( opt(Semis) )
   def Semi         = rule( WS ~ Basic.Semi )
   def Semis        = rule( rep1(Semi) )
   def SpaceWS      = rule( rep(Basic.WhitespaceChar) )
-  def NotNL: R0    = rule( &( WS ~ !Basic.Newline ) )
-  def OneNLMax: R0 = rule( OptNL ~ rep(CommentWS) ~ NotNL )
-  def optSemi      = rule( opt(Semi) )
-  def optSemis     = rule( opt(Semis) )
 
+  /** Identifier rules, including the identifier-like _, this, and super.
+   */
   def Id               = rule( WL ~ Identifiers.Id )
   def IdDot            = rule( Id ~ Dot )
   def IdOrThis         = rule( Id | This )
@@ -123,34 +138,56 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def IdOrUscoreOrThis = rule( Id | Uscore | This )
   def QualId           = rule( WL ~ rep1sep(Id, Dot) )
   def QualSuper        = rule( `super` ~ opt(Qualifier) )
+  def Qualifier        = rule( '[' ~ IdOrThis ~ ']' )
+  def StableId: R0     = rule( rep1sep(Id | This | QualSuper, Dot) )
   def This             = rule( `this` )
   def VarId            = rule( WL ~ Identifiers.VarId )
   def VarIdOrUscore    = rule( VarId | Uscore )
 
-  def Qualifier    = rule( '[' ~ IdOrThis ~ ']' )
-  def StableId: R0 = rule( rep1sep(Id | This | QualSuper, Dot) )
-
-  def InfixType: R0    = rule( rep1sep(CompoundType, NotNL ~ Id ~ OneNLMax) )
-  def CompoundType     = oneOrBoth(IntersectionType, Refinement)
-  def ParentType       = rule( AnnotType ~ rep(NotNL ~ ArgumentExprs) )
-  def AnnotType        = rule( SimpleType ~ rep(NotNL ~ Annotation) )
-  def WildcardType     = rule( Uscore )
-  def AtomicType       = rule( WildcardType | ProductType | SingletonType | StableId )
-  def SimpleType       = rule( AtomicType ~ rep(TypeSuffix) )
-
-  def ValueAnnotations  = rule( rep1(Annotation) )  // e.g. (x: @switch) match { ... }
-  def Ascription        = rule( Colon ~ ( WildcardStar | Type | ValueAnnotations ) )
+  /** Type rules.
+   */
+  def AnnotType         = rule( SimpleType ~ rep(NotNL ~ Annotation) )
+  def AtomicType        = rule( WildcardType | ProductType | SingletonType | StableId )
+  def CompoundType      = oneOrBoth(IntersectionType, Refinement)
   def ExistentialClause = rule( `forSome` ~ inBraces(UnmodifiedDef) )
+  def InfixType: R0     = rule( rep1sep(CompoundType, NotNL ~ Id ~ OneNLMax) )
+  def ParentType        = rule( AnnotType ~ rep(NotNL ~ ArgumentExprs) )
   def ProductType       = rule( '(' ~ repsep(ParamType, Comma) ~ ')' )
+  def SimpleType        = rule( AtomicType ~ rep(TypeSuffix) )
   def SingletonType     = rule( StableId ~ Dot ~ `type` )
   def TypeProjection    = rule( Hash ~ Id )
   def TypeSuffix        = rule( TypeArgs | TypeProjection )
+  def WildcardType      = rule( Uscore )
 
-  def EnumeratorsPart = rule(
-      '(' ~ InExpr.Enumerators ~ ')'
-    | '{' ~ InBlock.Enumerators ~ '}'
+  /** Pattern rules.
+   */
+  def BindablePattern        = rule( opt(PatternBinding) ~ ( WildcardStar | InfixPattern ) )
+  def CaseClause: R0         = rule( `case` ~ Pattern ~ opt(InExpr.Guard) ~ RArrow ~ ImpliedBlock )
+  def CaseClauses: R0        = rule( rep1(CaseClause) )
+  def ConstructorPattern     = rule( StableId ~ opt(TypeArgs) ~ opt(ProductPattern) )
+  def InfixPattern           = rule( rep1sep(SimplePattern, Id) )
+  def PatternAlternative: R0 = rule( TypedPattern | BindablePattern )
+  def PatternAscription      = rule( Colon ~ PatternType )
+  def PatternBinding         = rule( VarIdOrUscore ~ At )
+  def PatternType            = rule( CompoundType )
+  def Patterns               = rule( rep1sep(BindablePattern ~ opt(RArrow ~ BindablePattern), Comma) )
+  def ProductPattern         = rule( inParens(PatternF0) )
+  def TypedPattern           = rule( VarIdOrUscore ~ PatternAscription )
+  def UnderscorePattern      = rule( Uscore ~ !Star ~ opt(PatternAscription) )
+  def VariablePattern        = rule( VarId )
+  def SimplePattern          = rule(
+      XmlPattern
+    | UnderscorePattern
+    | Literals.Pattern
+    | ProductPattern
+    | ConstructorPattern
+    | VariablePattern
   )
 
+  /** Whitespace-sensitive rules, mostly impacting expressions.
+   *  The distinction is that sometimes newlines are significant and must be inferred
+   *  as a semicolon, and sometimes they are simply whitespace.
+   */
   object InBlock extends WhitespaceRules(inBlock = true)
   object InExpr extends WhitespaceRules(inBlock = false)
 
@@ -159,11 +196,11 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     def NoNewlineInBlock: R0       = if (inBlock) NotNL else MATCH
 
     // These rules can all commit after the keyword.
-    def DoExpr     = rule( `do`      ~!~ Expr ~ optSemi ~ `while` ~ ParenExpr )
+    def DoExpr     = rule( `do`      ~!~ Expr ~ OptSemi ~ `while` ~ ParenExpr )
     def ElsePart   = rule( `else`    ~!~ Expr )
     def FinPart    = rule( `finally` ~!~ Expr )
     def ForExpr    = rule( `for`     ~!~ EnumeratorsPart ~ opt(`yield`) ~ Expr )
-    def IfExpr     = rule( `if`      ~!~ ParenExpr ~ Expr ~ opt(optSemi ~ ElsePart) )
+    def IfExpr     = rule( `if`      ~!~ ParenExpr ~ Expr ~ opt(OptSemi ~ ElsePart) )
     def Guard      = rule( `if`      ~!~ PostfixExpr )
     def MatchPart  = rule( `match`   ~!~ '{' ~ CaseClauses ~ '}' )
     def NewExpr    = rule( `new`     ~!~ ExtendsOrNew )
@@ -173,16 +210,22 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     def WhileExpr  = rule( `while`   ~!~ ParenExpr ~ Expr )
 
     def AssignPart  = rule( Equals ~ Expr )
-    def ProductExpr = rule( '(' ~ opt(Exprs) ~ ')' )
-
-    def ForAssign   = rule( opt(`val`) ~ PatternAlternative ~ Equals ~ Expr ~ opt(Guard) )  // Leading val is deprecated
-    def Generator   = rule( PatternAlternative ~ LArrow ~ Expr ~ opt(Guard) )
-    def Enumerator  = rule( Generator | ForAssign | Guard )
-    def Enumerators = rule( Generator ~ rep(Semis ~ Enumerator) ~ WL )
     def InfixPart   = rule( NoNewlineInBlock ~ Id ~ opt(TypeArgs) ~ OptionalNewlineInBlock ~ PrefixExpr )
     def PostfixExpr = rule( PrefixExpr ~ rep(InfixPart) ~ opt(PostfixPart) )
     def PostfixPart = rule( NoNewlineInBlock ~ Id ~ opt(NL) ) // not OptNL!
     def PrefixExpr  = rule( opt(PrefixOperator) ~ SimpleExpr )
+    def ProductExpr = rule( '(' ~ opt(Exprs) ~ ')' )
+
+    /** For comprehensions.
+     */
+    def Enumerator      = rule( Generator | ForAssign | Guard )
+    def Enumerators     = rule( Generator ~ rep(Semis ~ Enumerator) ~ WL )
+    def ForAssign       = rule( opt(`val`) ~ PatternAlternative ~ Equals ~ Expr ~ opt(Guard) )  // Leading val is deprecated
+    def Generator       = rule( PatternAlternative ~ LArrow ~ Expr ~ opt(Guard) )
+    def EnumeratorsPart = rule(
+        '(' ~ InExpr.Enumerators ~ ')'
+      | '{' ~ InBlock.Enumerators ~ '}'
+    )
 
     def SimpleExprStart = rule(
         XmlExpr
@@ -220,7 +263,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     | IdOrUscore ~ OptInfixType
   )
   def Block: R0           = ImpliedBlock
-  def ImpliedBlock: R0    = rule( optSemis ~ BlockStatSeq() ~ BlockEnd )
+  def ImpliedBlock: R0    = rule( OptSemis ~ BlockStatSeq() ~ BlockEnd )
   def ExplicitBlock: R0   = rule( OneNLMax ~ '{' ~ ( CaseClauses | BlockStatSeq() ) ~ '}' )
   def AnnotArgument: R0   = rule( opt(Id ~ Equals) ~ ( !(Id ~ Colon) ~ Expr ) )
   def AnnotationArguments = rule( '(' ~ repsep(AnnotArgument, Comma) ~ ')' )
@@ -230,37 +273,16 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     | ExplicitBlock
   )
 
-  def Pattern                = AltPattern
-  def PatternType            = rule( CompoundType )
-  def PatternAscription      = rule( Colon ~ PatternType )
-  def UnderscorePattern      = rule( Uscore ~ !Star ~ opt(PatternAscription) )
-  def VariablePattern        = rule( VarId )
-  def TypedPattern           = rule( VarIdOrUscore ~ PatternAscription )
-  def PatternBinding         = rule( VarIdOrUscore ~ At )
-  def PatternAlternative: R0 = rule( TypedPattern | BindablePattern )
-  def BindablePattern        = rule( opt(PatternBinding) ~ ( WildcardStar | InfixPattern ) )
-  def AltPattern             = rule( rep1sep(PatternAlternative, Pipe) )
-  def InfixPattern           = rule( rep1sep(SimplePattern, Id) )
-  def ConstructorPattern     = rule( StableId ~ opt(TypeArgs) ~ opt(ProductPattern) )
-  def ProductPattern         = rule( inParens(PatternF0) )
-
-  def SimplePattern = rule(
-      XmlPattern
-    | UnderscorePattern
-    | Literals.Pattern
-    | ProductPattern
-    | ConstructorPattern
-    | VariablePattern
-  )
-
   // In scala it would suffice for TypeBounds to follow underscore, since the only
   // place you can use it is e.g. Foo[_ <: Bar]
   //
   // but we want to be able to do other things such as
   //   case x: Foo[t <: Bar] => (x: t) => 1
   //
-  def TypeArg       = rule( Type ~ TypeConstraints )
-  def TypeParam: R0 = rule( IdOrUscore ~ TypeConstraints )
+  def TypeArg          = rule( Type ~ TypeConstraints )
+  def TypeParam: R0    = rule( IdOrUscore ~ TypeConstraints )
+  def Ascription       = rule( Colon ~ ( WildcardStar | Type | ValueAnnotations ) )
+  def ValueAnnotations = rule( rep1(Annotation) )  // e.g. (x: @switch) match { ... }
 
   def ValueConstraint = rule(
       Colon ~ ParamType
@@ -286,22 +308,13 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def MethodParamLists     = rule( rep(MethodParamList) )
   def MethodParam          = rule( AnnotationsAndMods ~ opt(ValOrVar) ~ Id ~ rep(ValueConstraint) )
 
-  /** Highest level rules. */
-  def MemberDef    = rule( AnnotationsAndMods ~ Unmodified.Def )
-  def Type: R0     = rule( InfixType ~ opt(ExistentialClause | RArrow ~ Type) )
-  def FunArgTypes  = rule( InfixType | inParens(ParamTypeF0) )
-  def Expr         = rule( InExpr.Expr )
-  def CompUnit     = rule( PackageStatSeq() ~ TopStatSeq() ~ WL )
   def FunctionType = rule( FunArgTypes ~ RArrow ~ Type )
 
-  def CompilationUnit: Rule1[String] = rule( capture(CompUnit) ~ EOI )
 
   def AccessModifier     = rule( ( `private` | `protected` ) ~ opt(Qualifier) )
   def Annotation         = rule( At ~ SimpleType ~ opt(NotNL ~ AnnotationArguments) ) // needs SimpleType to accept type arguments
   def Annotations        = rule( rep(Annotation) )
   def AnnotationsAndMods = rule( rep(Annotation ~ OneNLMax) ~ rep(Modifier) )
-  def CaseClause: R0     = rule( `case` ~ Pattern ~ opt(InExpr.Guard) ~ RArrow ~ ImpliedBlock )
-  def CaseClauses: R0    = rule( rep1(CaseClause) )
   def ConstructorMods    = rule( rep(Annotation ~ NotNL) ~ rep(Modifier) )
   def EarlyDefs          = rule( inBraces(() => MemberDef) ~ `with` )
   def ExprSensitive      = rule( InBlock.Expr )
@@ -322,7 +335,6 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def ParamType: R0      = rule( Type ~ opt(Star) | RArrow ~ Type )
   def PackageDef: R0     = rule( Package ~ QualId ~ inBraces(TopStat) )
   def ParenExpr          = rule( '(' ~ Expr ~ ')' )
-  def Patterns           = rule( rep1sep(BindablePattern ~ opt(RArrow ~ BindablePattern), Comma) )
   def SelfType: R0       = rule( IdOrUscoreOrThis ~ OptInfixType ~ RArrow )
   def TemplateDef        = rule( AnnotationsAndMods ~ Unmodified.TemplateDef )
   def TypeArgs           = rule( '[' ~ TypeArg ~ rep(Comma ~ TypeArg) ~ ']' )
@@ -355,7 +367,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def inBraces(stat: F0R0): R0        = rule( '{' ~ semiSeparated(stat) ~ '}' )
   def inParens(elem: F0R0): R0        = rule( '(' ~ repsep(elem(), Comma) ~ ')' )
   def inBrackets(param: F0R0): R0     = rule( '[' ~ rep1sep(param(), Comma) ~ ']' )
-  def semiSeparated(stat: F0R0): R0   = rule( optSemis ~ repsep(stat(), Semis) ~ optSemis )
+  def semiSeparated(stat: F0R0): R0   = rule( OptSemis ~ repsep(stat(), Semis) ~ OptSemis )
 
   object Unmodified {
     // The !RArrow in TemplateParams is defense against "class A" and "() => 5" on consecutive lines.
@@ -384,5 +396,5 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   }
 
   private def BlockStart = rule( &( WS ~ '{' ) )
-  private def BlockEnd   = rule( optSemis ~ &( '}' | `case` ) )
+  private def BlockEnd   = rule( OptSemis ~ &( '}' | `case` ) )
 }
