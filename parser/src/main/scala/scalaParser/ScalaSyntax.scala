@@ -168,28 +168,24 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
 
   /** Pattern rules.
    */
-  def BindablePattern        = rule( opt(PatternBinding) ~ ( WildcardStar | InfixPattern ) )
+  def BindablePattern        = rule( opt(VarIdOrUscore ~ At) ~ ( WildcardStar | InfixPattern ) )
   def CaseClause: R0         = rule( `case` ~ Pattern ~ opt(InExpr.Guard) ~ RArrow ~ ImpliedBlock )
-  def CaseClauses: R0        = rule( rep1(CaseClause) )
   def CaseBlock              = rule( '{' ~ rep1(CaseClause) ~ '}' )
   def ConstructorPattern     = rule( StableId ~ opt(TypeArgs) ~ opt(ProductPattern) )
   def InfixPattern           = rule( rep1sep(SimplePattern, Id) )
   def PatternAlternative: R0 = rule( TypedPattern | BindablePattern )
-  def PatternAscription      = rule( Colon ~ PatternType )
-  def PatternBinding         = rule( VarIdOrUscore ~ At )
-  def PatternType            = rule( CompoundType )
+  def PatternAscription      = rule( Colon ~ CompoundType )
   def Patterns               = rule( rep1sep(BindablePattern ~ opt(RArrow ~ BindablePattern), Comma) )
   def ProductPattern         = rule( inParens(PatternF0) )
   def TypedPattern           = rule( VarIdOrUscore ~ PatternAscription )
   def UnderscorePattern      = rule( Uscore ~ !Star ~ opt(PatternAscription) )
-  def VariablePattern        = rule( VarId )
   def SimplePattern          = rule(
       XmlPattern
     | UnderscorePattern
     | Literals.Pattern
     | ProductPattern
     | ConstructorPattern
-    | VariablePattern
+    | VarId // variable pattern
   )
 
   /** Whitespace-sensitive rules, mostly impacting expressions.
