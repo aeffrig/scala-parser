@@ -75,23 +75,24 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   implicit def wspStr(s: String): R0 = rule( WL ~ str(s) )
   implicit def wspChar(s: Char): R0  = rule( WL ~ ch(s) )
 
-  def At           = rule( `@` )
-  def Colon        = rule( `:` )
-  def Comma        = rule( ',' )
-  def Dot          = rule( '.' )
-  def Hash         = rule( `#` )
-  def Equals       = rule( `=` )
-  def LArrow       = rule( `<-` )
-  def Package      = rule( `package` )
-  def Pipe         = rule( `|` )
-  def RArrow       = rule( `=>` )
-  def Star         = rule( `*` )
-  def SubType      = rule( `<:` )
-  def SuperType    = rule( `>:` )
-  def Uscore       = rule( `_` )
-  def WildcardStar = rule( Uscore ~ Star )
-  def Variance     = rule( Plus | Minus )
-  def VBound       = rule( `<%` )
+  def At            = rule( `@` )
+  def Colon         = rule( `:` )
+  def Comma         = rule( ',' )
+  def Dot           = rule( '.' )
+  def Hash          = rule( `#` )
+  def Equals        = rule( `=` )
+  def LArrow        = rule( `<-` )
+  def Package       = rule( `package` )
+  def Pipe          = rule( `|` )
+  def RArrow        = rule( `=>` )
+  def Star          = rule( `*` )
+  def SubType       = rule( `<:` )
+  def SuperType     = rule( `>:` )
+  def Uscore        = rule( `_` )
+  def WildcardStar  = rule( Uscore ~ Star )
+  def Variance      = rule( Plus | Minus )
+  def ViewBound     = rule( `<%` )
+  def CaseOrPackage = rule( `case` | `package` )
 
   /**
    * helper printing function
@@ -248,8 +249,8 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   // but we want to be able to do other things such as
   //   case x: Foo[t <: Bar] => (x: t) => 1
   //
-  def TypeArg          = rule( Type ~ TypeConstraints )
-  def TypeParam: R0    = rule( IdOrUscore ~ TypeConstraints )
+  def TypeArg       = rule( Type ~ TypeConstraints )
+  def TypeParam: R0 = rule( IdOrUscore ~ TypeConstraints )
 
   def ValueConstraint = rule(
       Colon ~ ParamType
@@ -260,7 +261,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def TypeConstraint   = rule(
       SubType ~ Type
     | SuperType ~ Type
-    | VBound ~ Type
+    | ViewBound ~ Type
     | Colon ~ Type
     | Equals ~ Type
     | TypeTypeParamList
@@ -318,6 +319,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def TemplateDef        = rule( AnnotationsAndMods ~ Unmodified.TemplateDef )
   def TypeArgs           = rule( '[' ~ TypeArg ~ rep(Comma ~ TypeArg) ~ ']' )
   def ValOrVar           = rule( `val` | `var` )
+  def ClassObjectOrTrait = rule( `class` | `object` | `trait` )
   def VarargsStar        = rule( Colon ~ WildcardStar )
 
   def optSemi  = rule( opt(Semi) )
@@ -360,19 +362,14 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     private def ExtendsClause     = rule( ( `extends` | SubType ) ~ ExtendsOrNew )
     private def TemplateOpt       = rule( ExtendsClause | opt(Template) )
 
-    def TemplateDef = rule( TemplateIntro ~ TemplateOpt )
-    def ValDef      = rule( ValOrVar ~ Patterns ~ ValueConstraints )
-    def TypeDef     = rule( `type` ~ Id ~ TypeConstraints )
-    def DefDef      = rule( DefIntro ~ DefBody )
+    def TemplateDef     = rule( TemplateIntro ~ TemplateOpt )
+    def ValDef          = rule( ValOrVar ~ Patterns ~ ValueConstraints )
+    def TypeDef         = rule( `type` ~ Id ~ TypeConstraints )
+    def DefDef          = rule( DefIntro ~ DefBody )
 
-    def TemplateKeyword = rule(
-        `trait`
-      | `class`
-      | `object`
-      | `case` ~ `object`
-      | `case` ~ `class`
-      | `package` ~ `object`
-    )
+    /** Want a case trait? Sure. Need a package class? Sure, why not.
+     */
+    def TemplateKeyword = rule( opt(CaseOrPackage) ~ ClassObjectOrTrait )
     def Def: R0 = rule(
         ValDef
       | TypeDef
