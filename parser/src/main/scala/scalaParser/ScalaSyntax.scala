@@ -138,16 +138,16 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def TypeSuffix        = rule( TypeArgs | TypeProjection )
 
   def EnumeratorsPart = rule(
-      '(' ~ NotSensitive.Enumerators ~ ')'
-    | '{' ~ IsSensitive.Enumerators ~ '}'
+      '(' ~ InExpr.Enumerators ~ ')'
+    | '{' ~ InBlock.Enumerators ~ '}'
   )
 
-  object IsSensitive extends SensitiveRules(semicolonInference = true)
-  object NotSensitive extends SensitiveRules(semicolonInference = false)
+  object InBlock extends WhitespaceRules(inBlock = true)
+  object InExpr extends WhitespaceRules(inBlock = false)
 
-  abstract class SensitiveRules(semicolonInference: Boolean) {
-    def MaybeOneNewline: R0 = if (semicolonInference) OneNLMax else MATCH
-    def MaybeNotNL: R0      = if (semicolonInference) NotNL else MATCH
+  abstract class WhitespaceRules(inBlock: Boolean) {
+    def OptionalNewlineInBlock: R0 = if (inBlock) OneNLMax else MATCH
+    def NoNewlineInBlock: R0       = if (inBlock) NotNL else MATCH
 
     def DoExpr     = rule( `do` ~ Expr ~ optSemi ~ `while` ~ ParenExpr )
     def ElsePart   = rule( `else` ~ Expr )
@@ -169,9 +169,9 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     def Generator   = rule( PatternAlternative ~ LArrow ~ Expr ~ opt(Guard) )
     def Enumerator  = rule( Generator | ForAssign | Guard )
     def Enumerators = rule( Generator ~ rep(Semis ~ Enumerator) ~ WL )
-    def InfixPart   = rule( MaybeNotNL ~ Id ~ opt(TypeArgs) ~ MaybeOneNewline ~ PrefixExpr )
+    def InfixPart   = rule( NoNewlineInBlock ~ Id ~ opt(TypeArgs) ~ OptionalNewlineInBlock ~ PrefixExpr )
     def PostfixExpr = rule( PrefixExpr ~ rep(InfixPart) ~ opt(PostfixPart) )
-    def PostfixPart = rule( MaybeNotNL ~ Id ~ opt(NL) ) // not OptNL!
+    def PostfixPart = rule( NoNewlineInBlock ~ Id ~ opt(NL) ) // not OptNL!
     def PrefixExpr  = rule( opt(PrefixOperator) ~ SimpleExpr )
 
     def SimpleExprStart = rule(
@@ -186,9 +186,9 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
     def SimpleExprPart = rule(
         TypeArgs
       | Dot ~ Id
-      | MaybeNotNL ~ ArgumentExprs
+      | NoNewlineInBlock ~ ArgumentExprs
     )
-    def SimpleExpr: R0 = rule( SimpleExprStart ~ rep(SimpleExprPart) ~ opt(MaybeNotNL ~ Uscore) )
+    def SimpleExpr: R0 = rule( SimpleExprStart ~ rep(SimpleExprPart) ~ opt(NoNewlineInBlock ~ Uscore) )
     def LambdaExpr     = rule( rep1(LambdaArgs ~ RArrow) ~ ( Expr | ImpliedBlock ) )
 
     def Expr: R0 = rule(
@@ -280,7 +280,7 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def Definition   = rule( AnnotationsAndMods ~ Unmodified.Def )
   def Type: R0     = rule( InfixType ~ opt(ExistentialClause | RArrow ~ Type) )
   def FunArgTypes  = rule( InfixType | inParens(ParamTypeF0) )
-  def Expr         = rule( NotSensitive.Expr )
+  def Expr         = rule( InExpr.Expr )
   def CompUnit     = rule( PackageStatSeq() ~ TopStatSeq() ~ WL )
   def FunctionType = rule( FunArgTypes ~ RArrow ~ Type )
 
@@ -290,11 +290,11 @@ class ScalaSyntax(val input: ParserInput) extends PspParser with Keywords with X
   def Annotation         = rule( At ~ SimpleType ~ opt(NotNL ~ AnnotationArguments) ) // needs SimpleType to accept type arguments
   def Annotations        = rule( rep(Annotation) )
   def AnnotationsAndMods = rule( rep(Annotation ~ OneNLMax) ~ rep(Modifier) )
-  def CaseClause: R0     = rule( `case` ~ Pattern ~ opt(NotSensitive.Guard) ~ RArrow ~ ImpliedBlock )
+  def CaseClause: R0     = rule( `case` ~ Pattern ~ opt(InExpr.Guard) ~ RArrow ~ ImpliedBlock )
   def CaseClauses: R0    = rule( rep1(CaseClause) )
   def ConstructorMods    = rule( rep(Annotation ~ NotNL) ~ rep(Modifier) )
   def EarlyDefs          = rule( inBraces(() => Definition) ~ `with` )
-  def ExprSensitive      = rule( IsSensitive.Expr )
+  def ExprSensitive      = rule( InBlock.Expr )
   def Exprs: R0          = rule( rep1sep(WL ~ Expr, Comma) )
   def ExtendsOrNew       = oneOrBoth(ParentsF0, TemplateF0)
   def Import             = rule( `import` ~ ImportExprs )
