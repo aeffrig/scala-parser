@@ -18,7 +18,6 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   val AnnotatedTypeParam : F0R0 = () => rule( Annotations ~ TypeParam )
   val FlatPackageStat    : F0R0 = () => rule( Package ~ QualId ~ !BlockStart )
   val IntersectionType   : F0R0 = () => rule( rep1sep(ParentType, `with`) )
-  val NameAndOptType     : F0R0 = () => rule( IdOrUscore ~ Ascripted.Opt )
   val UnmodifiedDefs     : F0R0 = () => rule( inBraces(() => Unmodified.Def) )
   val VariantTypeParam   : F0R0 = () => rule( Annotations ~ opt(WL ~ Variance) ~ TypeParam )
   val Parents            : F0R0 = () => rule( opt(EarlyDefs) ~ IntersectionType() )
@@ -118,9 +117,7 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   def ProductType     = rule( '(' ~ repsep(ParamType, Comma) ~ ')' )
   def SimpleType      = rule( AtomicType ~ rep(TypeSuffix) )
   def SingletonType   = rule( StableId ~ Dot ~ `type` )
-  def TypeArg         = rule( Type ~ TypeConstraints )
   def TypeArgs        = rule( '[' ~ TypeArg ~ rep(Comma ~ TypeArg) ~ ']' )
-  def TypeParam: R0   = rule( IdOrUscore ~ TypeConstraints )
   def TypeProjection  = rule( Hash ~ Id )
   def TypeSuffix      = rule( TypeArgs | TypeProjection )
   def WildcardType    = rule( Uscore )
@@ -234,8 +231,8 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
    *     x: A => B =>  // parse error
    */
   def LambdaParams = rule(
-      inParens(NameAndOptType)
-    | opt(`implicit`) ~ IdOrUscore ~ AscriptedInfix.Opt
+      inParens(AscriptedParam.BindingF0)
+    | opt(`implicit`) ~ AscriptedInfix.Binding
   )
 
   def SuperArgs       = rule( NotNL ~ ArgumentExprs )
@@ -245,61 +242,63 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
       AscriptedParam.Type
     | Equals ~ opt(`macro`) ~ ExprSensitive
   )
-  def TypeConstraint   = rule(
-      SubType ~ Type
-    | SuperType ~ Type
-    | ViewBound ~ Type
-    | Ascripted.Type
-    | Equals ~ Type
-    | TypeTypeParamList
+
+  def TypeConstraint = rule(
+      SubType ~ Type          // <: Type   (upper bound)
+    | SuperType ~ Type        // >: Type   (lower bound)
+    | ViewBound ~ Type        // <% Type   (view bound)
+    | Colon ~ Type            //  : Type   (context bound)
+    | Equals ~ Type           //  = Type   (type alias definition, or potentially a type parameter default or named type argument)
+    | TypeTypeParamList       // [Type...] (type parameter list)
   )
+  def TypeArg   = rule( Type ~ rep(TypeConstraint) )
+  def TypeParam = rule( IdOrUscore ~ rep(TypeConstraint) )
 
   sealed abstract class AscriptedType(tpe: => R0) {
     private val Rule: F0R0 = () => tpe
-    def Type = rule( Colon ~ Rule() )
-    def Opt  = rule( opt(Type) )
+
+    val BindingF0: F0R0 = () => Binding
+
+    def Binding = rule( IdOrUscore ~ Opt)
+    def Type    = rule( Colon ~ Rule() )
+    def Opt     = rule( opt(Type) )
   }
   object AscriptedParam   extends AscriptedType(ParamType)
   object AscriptedPattern extends AscriptedType(CompoundType)
   object AscriptedInfix   extends AscriptedType(InfixType)
-  object Ascripted        extends AscriptedType(Type)
   object AscriptedExpr    extends AscriptedType(ExprAscription)
 
-  def AccessModifier       = rule( ( `private` | `protected` ) ~ opt(Qualifier) )
-  def AnnotArgument: R0    = rule( opt(Id ~ Equals) ~ ( !(Id ~ Colon) ~ Expr ) )
-  def Annotation           = rule( At ~ SimpleType ~ opt(NotNL ~ AnnotationArguments) ) // needs SimpleType to accept type arguments
-  def AnnotationArguments  = rule( '(' ~ repsep(AnnotArgument, Comma) ~ ')' )
-  def Annotations          = rule( rep(Annotation) )
-  def AnnotationsAndMods   = rule( rep(Annotation ~ OneNLMax) ~ rep(Modifier) )
-  def Block: R0            = ImpliedBlock
-  def ClassObjectOrTrait   = rule( `class` | `object` | `trait` )
-  def ConstructorMods      = rule( rep(Annotation ~ NotNL) ~ rep(Modifier) )
-  def EarlyDefs            = rule( inBraces(() => MemberDef) ~ `with` )
-  def ExplicitBlock: R0    = rule( OneNLMax ~ ( CaseBlock | '{' ~ BlockStatSeq() ~ '}' ) )
-  def ExprAscription       = rule( WildcardStar | Type | rep1(Annotation) ) // e.g. (x: @switch) match { ... }
-  def ExprSensitive        = rule( InBlock.Expr )
-  def ExtendsOrNew         = oneOrBoth(Parents, Template)
-  def ImpliedBlock: R0     = rule( OptSemis ~ BlockStatSeq() ~ BlockEnd )
-  def Import               = rule( `import` ~ ImportExprs )
-  def ImportExpr           = rule( StableId ~ opt(ImportSuffix) )
-  def ImportExprs          = rule( rep1sep(ImportExpr, Comma) )
-  def ImportSelector       = rule( IdOrUscore ~ opt(RArrow ~ IdOrUscore) )
-  def ImportSelectors      = rule( '{' ~ rep1sep(ImportSelector, Comma) ~ '}' )
-  def ImportSuffix         = rule( Dot ~ (Uscore | ImportSelectors) )
-  def MethodParam          = rule( AnnotationsAndMods ~ opt(ValOrVar) ~ Id ~ rep(ValueConstraint) )
-  def MethodParamList      = rule( '(' ~ opt(`implicit`) ~ repsep(MethodParam, Comma) ~ ')' )
-  def MethodParamLists     = rule( rep(MethodParamList) )
-  def MethodTypeParamList  = inBrackets(AnnotatedTypeParam)
-  def MethodTypeParamLists = rule( rep(MethodTypeParamList) )
-  def Modifier             = rule( `abstract` | `final` | `sealed` | `implicit` | `lazy` | `override` | AccessModifier )
-  def NamesAndType         = rule( rep1sep(Id, Comma) ~ Ascripted.Type )
-  def PackageDef: R0       = rule( Package ~ QualId ~ inBraces(TopStat) )
-  def ParenExpr            = rule( '(' ~ Expr ~ ')' )
-  def SelfType: R0         = rule( IdOrUscoreOrThis ~ AscriptedInfix.Opt ~ RArrow )
-  def TypeConstraints      = rule( rep(TypeConstraint) )
-  def TypeTypeParamList    = inBrackets(VariantTypeParam)
-  def TypeTypeParamLists   = rule( rep(TypeTypeParamList) )
-  def ValueConstraints     = rule( rep(ValueConstraint) )
+  def AccessModifier      = rule( ( `private` | `protected` ) ~ opt(Qualifier) )
+  def AnnotArgument: R0   = rule( opt(Id ~ Equals) ~ ( !(Id ~ Colon) ~ Expr ) )
+  def Annotation          = rule( At ~ SimpleType ~ opt(NotNL ~ AnnotationArguments) ) // needs SimpleType to accept type arguments
+  def AnnotationArguments = rule( '(' ~ repsep(AnnotArgument, Comma) ~ ')' )
+  def Annotations         = rule( rep(Annotation) )
+  def AnnotationsAndMods  = rule( rep(Annotation ~ OneNLMax) ~ rep(Modifier) )
+  def Block: R0           = ImpliedBlock
+  def ClassObjectOrTrait  = rule( `class` | `object` | `trait` )
+  def ConstructorMods     = rule( rep(Annotation ~ NotNL) ~ rep(Modifier) )
+  def EarlyDefs           = rule( inBraces(() => MemberDef) ~ `with` )
+  def ExplicitBlock: R0   = rule( OneNLMax ~ ( CaseBlock | '{' ~ BlockStatSeq() ~ '}' ) )
+  def ExprAscription      = rule( WildcardStar | Type | rep1(Annotation) ) // e.g. (x: @switch) match { ... }
+  def ExprSensitive       = rule( InBlock.Expr )
+  def ExtendsOrNew        = oneOrBoth(Parents, Template)
+  def ImpliedBlock: R0    = rule( OptSemis ~ BlockStatSeq() ~ BlockEnd )
+  def Import              = rule( `import` ~ ImportExprs )
+  def ImportExpr          = rule( StableId ~ opt(ImportSuffix) )
+  def ImportExprs         = rule( rep1sep(ImportExpr, Comma) )
+  def ImportSelector      = rule( IdOrUscore ~ opt(RArrow ~ IdOrUscore) )
+  def ImportSelectors     = rule( '{' ~ rep1sep(ImportSelector, Comma) ~ '}' )
+  def ImportSuffix        = rule( Dot ~ (Uscore | ImportSelectors) )
+  def MethodParam         = rule( AnnotationsAndMods ~ opt(ValOrVar) ~ Id ~ rep(ValueConstraint) )
+  def MethodParamList     = rule( '(' ~ opt(`implicit`) ~ repsep(MethodParam, Comma) ~ ')' )
+  def MethodParamLists    = rule( rep(MethodParamList) )
+  def MethodTypeParamList = inBrackets(AnnotatedTypeParam)
+  def Modifier            = rule( `abstract` | `final` | `sealed` | `implicit` | `lazy` | `override` | AccessModifier )
+  def PackageDef: R0      = rule( Package ~ QualId ~ inBraces(TopStat) )
+  def ParenExpr           = rule( '(' ~ Expr ~ ')' )
+  def SelfType: R0        = rule( IdOrUscoreOrThis ~ AscriptedInfix.Opt ~ RArrow )
+  def TypeTypeParamList   = inBrackets(VariantTypeParam)
+  def ValueConstraints    = rule( rep(ValueConstraint) )
 
   def errorContextWidth: Int            = 1
   def errorCharMarkup(ch: Char): String = {
@@ -330,9 +329,9 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
 
   object Unmodified {
     // The !RArrow in TemplateParams is defense against "class A" and "() => 5" on consecutive lines.
-    private def DefIntro          = rule( `def` ~ IdOrThis ~ MethodTypeParamLists ~ MethodParamLists )
+    private def DefIntro          = rule( `def` ~ IdOrThis ~ rep(MethodTypeParamList) ~ MethodParamLists )
     private def ConstructorParams = rule( opt(NotNL ~ ConstructorMods) ~ opt(MethodParamLists ~ !RArrow) )
-    private def TemplateIntro     = rule( TemplateKeyword ~ Id ~ TypeTypeParamLists ~ ConstructorParams )
+    private def TemplateIntro     = rule( TemplateKeyword ~ Id ~ rep(TypeTypeParamList) ~ ConstructorParams )
     private def DefBody           = rule( ExplicitBlock | ValueConstraints )
     private def EqualsBody        = rule( Equals ~ opt(`macro`) ~ ExprSensitive )
     private def ExtendsClause     = rule( ( `extends` | SubType ) ~ ExtendsOrNew )
@@ -340,7 +339,7 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
 
     def DefDef      = rule( DefIntro ~ DefBody )
     def TemplateDef = rule( TemplateIntro ~ TemplateOpt )
-    def TypeDef     = rule( `type` ~ Id ~ TypeConstraints )
+    def TypeDef     = rule( `type` ~ Id ~ rep(TypeConstraint) )
     def ValDef      = rule( ValOrVar ~ Patterns ~ ValueConstraints )
 
     /** Want a case trait? Sure. Need a package class? Sure, why not.
