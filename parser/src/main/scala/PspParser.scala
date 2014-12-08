@@ -52,6 +52,5 @@ class TraceScalaParser(in: ParserInput) extends ScalaParser(in) {
     counts.toList.sortBy(-_._2) foreach { case (k, v) => println("%6s  %s".format(k, v)) }
   }
 
-  override def Expr = rule( super.Expr ~ run(tick()) )
   override def Type = rule( super.Type ~ run(tick()) )
 }
