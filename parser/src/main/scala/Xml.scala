@@ -8,7 +8,7 @@ import psp.parser.macros.Macros._
 trait Xml {
   self: PspParser =>
 
-  def Patterns: Rule0
+  def FunPatterns: Rule0
 
   def XmlExpr    = rule( WL ~ Xml.XmlContent ~ rep(WL ~ Xml.Element) )
   def XmlPattern = rule( WL ~ Xml.ElemPattern )
@@ -93,18 +93,20 @@ trait Xml {
       // | [#x10000-#xEFFFF] ???? don't chars max out at \uffff ????
     )
 
-    def CDBegin      = rule( "<![CDATA[" )
-    def CDEnd        = rule( "]]>" )
-    def CharRefBegin = rule( "&#" )
-    def CharRefEnd   = rule( ";" )
-    def CommentBegin = rule( "<!--" )
-    def CommentEnd   = rule( "-->" )
-    def ETagBegin    = rule( "</" ~ Name )
-    def ETagEnd      = rule( ">" )
-    def PIBegin      = rule( "<?" ~ PIName ) // PI = Processing Instruction
-    def PIEnd        = rule( "?>" )
-    def TagBegin     = rule( "<" ~ Name )
-    def TagEnd       = rule( "/>" )
+    def CDBegin       = rule( "<![CDATA[" )
+    def CDEnd         = rule( "]]>" )
+    def CharRefBegin  = rule( "&#" )
+    def CharRefEnd    = rule( ";" )
+    def CommentBegin  = rule( "<!--" )
+    def CommentEnd    = rule( "-->" )
+    def ETagBegin     = rule( "</" ~ Name )
+    def ETagEnd       = rule( ">" )
+    def PIBegin       = rule( "<?" ~ PIName ) // PI = Processing Instruction
+    def PIEnd         = rule( "?>" )
+    def TagBegin      = rule( "<" ~ Name )
+    def TagEnd        = rule( "/>" )
+    def UnparsedBegin = rule( "<xml:unparsed>" )
+    def UnparsedEnd   = rule( "</xml:unparsed>" )
 
     def CDSect        = rule( CDBegin ~ CData ~ CDEnd )
     def CharRef       = rule( CharRefBegin ~ CharRefContent ~ CharRefEnd )
@@ -113,9 +115,6 @@ trait Xml {
     def EmptyElemTag  = rule( TagBegin ~ Attributes ~ TagEnd )
     def EmptyElemTagP = rule( TagBegin ~ opt(WL) ~ TagEnd )
     def PI            = rule( PIBegin ~ PIContent ~ PIEnd )
-
-    def UnparsedBegin = rule( "<xml:unparsed>" )
-    def UnparsedEnd   = rule( "</xml:unparsed>" )
     def Unparsed      = rule( UnparsedBegin ~ rep(!UnparsedEnd ~ ANY) ~ UnparsedEnd )
 
     def Attribute          = rule( Name ~ Eq ~ AttValue )
@@ -142,8 +141,8 @@ trait Xml {
     def Reference          = rule( EntityRef | CharRef )
     def STag               = rule( TagBegin ~ Attributes ~ '>' )
     def STagP              = rule( TagBegin ~ opt(WL) ~ '>' )
-    def ScalaExpr          = rule( '{' ~ WS ~ Block ~ WS ~ '}' )
-    def ScalaPatterns      = rule( '{' ~ Patterns ~ WL ~ '}' )
+    def ScalaExpr          = rule( '{' ~ WS ~ ImpliedBlock ~ WS ~ '}' )
+    def ScalaPatterns      = rule( '{' ~ FunPatterns ~ WL ~ '}' )
     def XNameStart         = rule( '_' | BaseChar | Ideographic )
     def XmlContent: Rule0  = rule( Unparsed | Element | CDSect | PI | Comment )
   }

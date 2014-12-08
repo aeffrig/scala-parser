@@ -30,7 +30,7 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   val IntersectionTypeF0 = () => IntersectionType
   val TypeArgF0          = () => TypeArg
   val ParamTypeF0        = () => ParamType
-  val PatternF0          = () => Pattern
+  val PatternF0          = () => CasePattern
 
   /** File-level entry point.
    */
@@ -39,13 +39,13 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   /** Big Picture rules.
    */
 
-  def CompUnit    = rule( PackageStatSeq() ~ TopStatSeq() ~ WL )
-  def MemberDef   = rule( AnnotationsAndMods ~ Unmodified.Def )
-  def SubExpr     = rule( InExpr.Expr )
-  def BlockExpr   = rule( InBlock.Expr )
-  def Pattern     = rule( rep1sep(PatternAlternative, Pipe) )
-  def TemplateDef = rule( AnnotationsAndMods ~ Unmodified.TemplateDef )
-  def Type: R0    = rule( InfixType ~ opt(ExistentialPart | RArrow ~ Type) )
+  def CompUnit        = rule( PackageStatSeq() ~ TopStatSeq() ~ WL )
+  def MemberDef       = rule( AnnotationsAndMods ~ Unmodified.Def )
+  def SubExpr         = rule( InExpr.Expr )
+  def BlockExpr       = rule( InBlock.Expr )
+  def CasePattern: R0 = rule( rep1sep(ValPattern, Pipe) )
+  def TemplateDef     = rule( AnnotationsAndMods ~ Unmodified.TemplateDef )
+  def Type: R0        = rule( InfixType ~ opt(ExistentialPart | RArrow ~ Type) )
 
   /**
    * By default, all strings and characters greedily
@@ -72,7 +72,7 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   def ValOrVar      = rule( `val` | `var` )
   def Variance      = rule( Plus | Minus )
   def ViewBound     = rule( `<%` )
-  def WildcardStar  = rule( Uscore ~ Star )
+  def SequenceStar  = rule( Uscore ~ Star )
 
   /**
    * helper printing function
@@ -117,7 +117,7 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   def ProductType      = inParens(ParamTypeF0)                                         // (A, B)
   def SimpleType       = rule( AtomicType ~ rep(TypeSuffix) )                          // A#B, A.type#B
   def TypeArgs         = inBrackets(TypeArgF0)                                         // [A, B, ...]
-  def ExprType         = rule( WildcardStar | Type | rep1(Annotation) )                // x: _* or (x: @switch) or x: A
+  def ExprType         = rule( SequenceStar | Type | rep1(Annotation) )                // x: _* or (x: @switch) or x: A
 
   def SelfType = rule(
       `this` ~ AscriptedInfix.Type // this: A
@@ -137,17 +137,22 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
 
   /** Pattern rules.
    */
-  def BindablePattern        = rule( opt(VarIdOrUscore ~ At) ~ ( WildcardStar | InfixPattern ) )
-  def CaseClause: R0         = rule( `case` ~ Pattern ~ opt(InExpr.Guard) ~ RArrow ~ ImpliedBlock )
-  def CaseBlock              = rule( '{' ~ rep1(CaseClause) ~ '}' )
-  def ConstructorPattern     = rule( StableId ~ opt(TypeArgs) ~ opt(ProductPattern) )
-  def InfixPattern           = rule( rep1sep(SimplePattern, Id) )
-  def PatternAlternative: R0 = rule( TypedPattern | BindablePattern )
-  def Patterns               = rule( rep1sep(BindablePattern ~ opt(RArrow ~ BindablePattern), Comma) )
-  def ProductPattern         = rule( inParens(PatternF0) )
-  def TypedPattern           = rule( VarIdOrUscore ~ AscriptedPattern.Type )
-  def UnderscorePattern      = rule( Uscore ~ !Star ~ AscriptedPattern.Opt )
-  def SimplePattern          = rule(
+
+  def Bind               = rule( VarIdOrUscore ~ At ) // _ @ A seems pointless, but exists in the wild
+  def BoundPattern       = rule( opt(Bind) ~ ( SequenceStar | InfixPattern ) )
+  def CaseBlock          = rule( '{' ~ rep1(CaseClause) ~ '}' )
+  def CaseBody           = rule( RArrow ~ ImpliedBlock )
+  def CaseClause: R0     = rule( `case` ~ CasePattern ~ opt(InExpr.Guard) ~ CaseBody )
+  def ConstructorPattern = rule( StableId ~ opt(TypeArgs) ~ opt(ProductPattern) )
+  def FunPattern         = rule( BoundPattern ~ opt(RArrow ~ BoundPattern) ) // val _: (A, B) => C = x, seen in wild
+  def FunPatterns        = rule( rep1sep(FunPattern, Comma) )
+  def InfixPattern       = rule( rep1sep(SimplePattern, Id) )
+  def ProductPattern     = rule( inParens(PatternF0) )
+  def TypedPattern       = rule( VarIdOrUscore ~ AscriptedPattern.Type )
+  def UnderscorePattern  = rule( Uscore ~ !Star ~ AscriptedPattern.Opt )
+  def ValPattern         = rule( TypedPattern | BoundPattern )
+
+  def SimplePattern      = rule(
       XmlPattern
     | UnderscorePattern
     | Literals.Pattern
@@ -197,8 +202,8 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
      */
     def Enumerator      = rule( Generator | ForAssign | Guard )
     def Enumerators     = rule( Generator ~ rep(Semis ~ Enumerator) ~ WL )
-    def ForAssign       = rule( opt(`val`) ~ PatternAlternative ~ AssignPart ~ opt(Guard) )  // Leading val is deprecated
-    def Generator       = rule( PatternAlternative ~ LArrow ~ Expr ~ opt(Guard) )
+    def ForAssign       = rule( opt(`val`) ~ ValPattern ~ AssignPart ~ opt(Guard) )  // Leading val is deprecated
+    def Generator       = rule( ValPattern ~ LArrow ~ Expr ~ opt(Guard) )
     def EnumeratorsPart = rule(
         '(' ~ InExpr.Enumerators ~ ')'
       | '{' ~ InBlock.Enumerators ~ '}'
@@ -294,7 +299,6 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   def AnnotationArguments = rule( '(' ~ repsep(AnnotArgument, Comma) ~ ')' )
   def Annotations         = rule( rep(Annotation) )
   def AnnotationsAndMods  = rule( rep(Annotation ~ OneNLMax) ~ rep(Modifier) )
-  def Block: R0           = ImpliedBlock
   def ClassObjectOrTrait  = rule( `class` | `object` | `trait` )
   def ConstructorMods     = rule( rep(Annotation ~ NotNL) ~ rep(Modifier) )
   def EarlyDefs           = rule( inBraces(() => MemberDef) ~ `with` )
@@ -356,7 +360,7 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
     def DefDef      = rule( DefIntro ~ DefBody )
     def TemplateDef = rule( TemplateIntro ~ TemplateOpt )
     def TypeDef     = rule( `type` ~ Id ~ rep(TypeConstraint) )
-    def ValDef      = rule( ValOrVar ~ Patterns ~ ValueConstraints )
+    def ValDef      = rule( ValOrVar ~ FunPatterns ~ ValueConstraints )
 
     /** Want a case trait? Sure. Need a package class? Sure, why not.
      */

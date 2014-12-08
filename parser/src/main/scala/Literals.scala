@@ -7,9 +7,8 @@ import macros.Macros._
 trait Literals {
   self: PspParser =>
 
-  def BindablePattern: Rule0
-  def Pattern: Rule0
-  def Block: Rule0
+  def CasePattern: Rule0
+  def ImpliedBlock: Rule0
   def WL: Rule0
 
   private final val TQ        = "\"\"\""
@@ -77,8 +76,8 @@ trait Literals {
       private def Interpolation: R0 = rule(
           InterpId
         | "$$"
-        | test(inPattern) ~ "${" ~ ( '{' ~ BindablePattern ~ '}' | BindablePattern ) ~ "}"
-        | "${" ~ Block ~ WL ~ "}"
+        | test(inPattern) ~ "${" ~ ( '{' ~ CasePattern ~ '}' | CasePattern ) ~ "}"
+        | "${" ~ ImpliedBlock ~ WL ~ "}"
       )
       def Rule = rule(
           NumericLiteral
