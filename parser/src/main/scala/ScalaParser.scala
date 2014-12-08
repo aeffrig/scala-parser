@@ -18,7 +18,7 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   val AnnotatedTypeParam : F0R0 = () => rule( Annotations ~ TypeParam )
   val FlatPackageStat    : F0R0 = () => rule( Package ~ QualId ~ !BlockStart )
   val IntersectionType   : F0R0 = () => rule( rep1sep(ParentType, `with`) )
-  val NameAndOptType     : F0R0 = () => rule( IdOrUscore ~ OptType )
+  val NameAndOptType     : F0R0 = () => rule( IdOrUscore ~ Ascripted.Opt )
   val UnmodifiedDefs     : F0R0 = () => rule( inBraces(() => Unmodified.Def) )
   val VariantTypeParam   : F0R0 = () => rule( Annotations ~ opt(WL ~ Variance) ~ TypeParam )
   val Parents            : F0R0 = () => rule( opt(EarlyDefs) ~ IntersectionType() )
@@ -112,11 +112,9 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   def AtomicType      = rule( WildcardType | ProductType | SingletonType | StableId )
   def CompoundType    = oneOrBoth(IntersectionType, Refinement)
   def ExistentialPart = rule( `forSome` ~ UnmodifiedDefs() )
-  def FunArgTypes     = rule( InfixType | inParens(ParamTypeF0) )
-  def FunctionType    = rule( FunArgTypes ~ RArrow ~ Type )
   def InfixType: R0   = rule( rep1sep(CompoundType, NotNL ~ Id ~ OneNLMax) )
   def ParamType: R0   = rule( Type ~ opt(Star) | RArrow ~ Type )
-  def ParentType      = rule( AnnotType ~ rep(NotNL ~ ArgumentExprs) )
+  def ParentType      = rule( AnnotType ~ rep(SuperArgs) )
   def ProductType     = rule( '(' ~ repsep(ParamType, Comma) ~ ')' )
   def SimpleType      = rule( AtomicType ~ rep(TypeSuffix) )
   def SingletonType   = rule( StableId ~ Dot ~ `type` )
@@ -135,11 +133,10 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   def ConstructorPattern     = rule( StableId ~ opt(TypeArgs) ~ opt(ProductPattern) )
   def InfixPattern           = rule( rep1sep(SimplePattern, Id) )
   def PatternAlternative: R0 = rule( TypedPattern | BindablePattern )
-  def PatternAscription      = rule( Colon ~ CompoundType )
   def Patterns               = rule( rep1sep(BindablePattern ~ opt(RArrow ~ BindablePattern), Comma) )
   def ProductPattern         = rule( inParens(PatternF0) )
-  def TypedPattern           = rule( VarIdOrUscore ~ PatternAscription )
-  def UnderscorePattern      = rule( Uscore ~ !Star ~ opt(PatternAscription) )
+  def TypedPattern           = rule( VarIdOrUscore ~ AscriptedPattern.Type )
+  def UnderscorePattern      = rule( Uscore ~ !Star ~ AscriptedPattern.Opt )
   def SimplePattern          = rule(
       XmlPattern
     | UnderscorePattern
@@ -179,7 +176,6 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
     def PostfixExpr = rule( PrefixExpr ~ rep(InfixPart) ~ opt(PostfixPart) )
     def PostfixPart = rule( NoNewlineInBlock ~ Id ~ opt(NL) ) // not OptNL!
     def PrefixExpr  = rule( opt(PrefixOperator) ~ SimpleExpr )
-    def ProductExpr = rule( '(' ~ opt(Exprs) ~ ')' )
 
     /** For comprehensions.
      */
@@ -207,7 +203,7 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
       | NoNewlineInBlock ~ ArgumentExprs
     )
     def SimpleExpr: R0 = rule( SimpleExprStart ~ rep(SimpleExprPart) ~ opt(NoNewlineInBlock ~ Uscore) )
-    def LambdaExpr     = rule( rep1(LambdaArgs ~ RArrow) ~ ( Expr | ImpliedBlock ) )
+    def LambdaExpr     = rule( rep1(LambdaParams ~ RArrow) ~ ( Expr | ImpliedBlock ) )
 
     def Expr: R0 = rule(
         LambdaExpr
@@ -218,32 +214,56 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
       | ForExpr
       | ThrowExpr
       | ReturnExpr
-      | PostfixExpr ~ opt( MatchPart | Ascription | AssignPart )
+      | PostfixExpr ~ opt(ExprSuffix)
+    )
+
+    def ExprSuffix = rule(
+        MatchPart
+      | AscriptedExpr.Type
+      | AssignPart
     )
   }
 
-  def LambdaArgs = rule(
+  /** Inside parentheses, the params can be `Type`s.
+   *  A naked single parameter can only be an `InfixType`
+   *  because `Type`s may be function types containing =>
+   *  which would be ambiguous with the => separating the
+   *  parameter from the body. Thus,
+   *    (x: A => B) => // ok
+   *     x: A =>       // ok
+   *     x: A => B =>  // parse error
+   */
+  def LambdaParams = rule(
       inParens(NameAndOptType)
-    | `implicit` ~ Id ~ OptInfixType
-    | IdOrUscore ~ OptInfixType
+    | opt(`implicit`) ~ IdOrUscore ~ AscriptedInfix.Opt
   )
 
-  def ArgumentExprs: R0 = rule(
-      '(' ~ opt(Exprs ~ opt(VarargsStar)) ~ ')'
-    | ExplicitBlock
-  )
+  def SuperArgs       = rule( NotNL ~ ArgumentExprs )
+  def ProductExpr     = rule( '(' ~ repsep(WL ~ Expr, Comma) ~ ')' )
+  def ArgumentExprs   = rule( ProductExpr | ExplicitBlock )
   def ValueConstraint = rule(
-      Colon ~ ParamType
+      AscriptedParam.Type
     | Equals ~ opt(`macro`) ~ ExprSensitive
   )
   def TypeConstraint   = rule(
       SubType ~ Type
     | SuperType ~ Type
     | ViewBound ~ Type
-    | Colon ~ Type
+    | Ascripted.Type
     | Equals ~ Type
     | TypeTypeParamList
   )
+
+  sealed abstract class AscriptedType(tpe: => R0) {
+    private val Rule: F0R0 = () => tpe
+    def Type = rule( Colon ~ Rule() )
+    def Opt  = rule( opt(Type) )
+  }
+  object AscriptedParam   extends AscriptedType(ParamType)
+  object AscriptedPattern extends AscriptedType(CompoundType)
+  object AscriptedInfix   extends AscriptedType(InfixType)
+  object Ascripted        extends AscriptedType(Type)
+  object AscriptedExpr    extends AscriptedType(ExprAscription)
 
   def AccessModifier       = rule( ( `private` | `protected` ) ~ opt(Qualifier) )
   def AnnotArgument: R0    = rule( opt(Id ~ Equals) ~ ( !(Id ~ Colon) ~ Expr ) )
@@ -251,14 +271,13 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   def AnnotationArguments  = rule( '(' ~ repsep(AnnotArgument, Comma) ~ ')' )
   def Annotations          = rule( rep(Annotation) )
   def AnnotationsAndMods   = rule( rep(Annotation ~ OneNLMax) ~ rep(Modifier) )
-  def Ascription           = rule( Colon ~ ( WildcardStar | Type | ValueAnnotations ) )
   def Block: R0            = ImpliedBlock
   def ClassObjectOrTrait   = rule( `class` | `object` | `trait` )
   def ConstructorMods      = rule( rep(Annotation ~ NotNL) ~ rep(Modifier) )
   def EarlyDefs            = rule( inBraces(() => MemberDef) ~ `with` )
   def ExplicitBlock: R0    = rule( OneNLMax ~ ( CaseBlock | '{' ~ BlockStatSeq() ~ '}' ) )
+  def ExprAscription       = rule( WildcardStar | Type | rep1(Annotation) ) // e.g. (x: @switch) match { ... }
   def ExprSensitive        = rule( InBlock.Expr )
-  def Exprs: R0            = rule( rep1sep(WL ~ Expr, Comma) )
   def ExtendsOrNew         = oneOrBoth(Parents, Template)
   def ImpliedBlock: R0     = rule( OptSemis ~ BlockStatSeq() ~ BlockEnd )
   def Import               = rule( `import` ~ ImportExprs )
@@ -273,20 +292,14 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   def MethodTypeParamList  = inBrackets(AnnotatedTypeParam)
   def MethodTypeParamLists = rule( rep(MethodTypeParamList) )
   def Modifier             = rule( `abstract` | `final` | `sealed` | `implicit` | `lazy` | `override` | AccessModifier )
-  def NamesAndType         = rule( rep1sep(Id, Comma) ~ Colon ~ Type )
-  def OptEquals            = rule( opt(Equals ~ Expr) )
-  def OptInfixType         = rule( opt(Colon ~ InfixType) )
-  def OptParamType         = rule( opt(Colon ~ ParamType) )
-  def OptType              = rule( opt(Colon ~ Type) )
+  def NamesAndType         = rule( rep1sep(Id, Comma) ~ Ascripted.Type )
   def PackageDef: R0       = rule( Package ~ QualId ~ inBraces(TopStat) )
   def ParenExpr            = rule( '(' ~ Expr ~ ')' )
-  def SelfType: R0         = rule( IdOrUscoreOrThis ~ OptInfixType ~ RArrow )
+  def SelfType: R0         = rule( IdOrUscoreOrThis ~ AscriptedInfix.Opt ~ RArrow )
   def TypeConstraints      = rule( rep(TypeConstraint) )
   def TypeTypeParamList    = inBrackets(VariantTypeParam)
   def TypeTypeParamLists   = rule( rep(TypeTypeParamList) )
-  def ValueAnnotations     = rule( rep1(Annotation) )  // e.g. (x: @switch) match { ... }
   def ValueConstraints     = rule( rep(ValueConstraint) )
-  def VarargsStar          = rule( Colon ~ WildcardStar )
 
   def errorContextWidth: Int            = 1
   def errorCharMarkup(ch: Char): String = {
