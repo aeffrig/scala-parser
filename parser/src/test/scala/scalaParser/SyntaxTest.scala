@@ -23,7 +23,7 @@ object SyntaxTest {
   def maxFileFmt   = "%-" + maxFileLen + "s"
   def scalaSources = "."
 
-  def scalaPaths(root: Path): Seq[Path] = paths(root) filterNot (_.segments contains "neg")
+  def scalaPaths(root: Path): Seq[Path] = paths(root) filterNot (_.segments contains path("neg"))
 
   def dump(f: ParseError) {
     println(f.position)
@@ -65,7 +65,7 @@ object SyntaxTest {
 
     def checkScalac(err: ParseError): Result = {
       ScalacGlobal(f) match {
-        case ((true, res))  => finish(Fail, failMessage(err))
+        case ((true, res))  => finish(Fail, parser.failMessage(f, err))
         case ((false, res)) => finish(Pass, " (nobody can parse)")
       }
     }
