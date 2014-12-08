@@ -1,0 +1,3 @@
+object GenJSCode {
+  code: @switch
+}

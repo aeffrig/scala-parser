@@ -1,0 +1,3 @@
+trait ReactorCanReply {
+  _: InternalReplyReactor =>
+}

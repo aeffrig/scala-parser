@@ -1,0 +1,3 @@
+trait Basic {
+  !a.b
+}

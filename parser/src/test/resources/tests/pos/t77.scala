@@ -1,0 +1,3 @@
+package immutable {
+  object O
+}

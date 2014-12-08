@@ -2,6 +2,7 @@ package psp
 package parser
 
 import org.parboiled2._
+import macros.Macros._
 
 trait Keywords {
   self: PspParser =>

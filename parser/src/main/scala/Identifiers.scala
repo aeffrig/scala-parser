@@ -11,17 +11,20 @@ trait Identifiers {
   object Identifiers {
     import Basic._
 
-    def VarId          = EncodedVarId
-    def PlainId        = EncodedPlainId
+    def VarId            = EncodedVarId
+    def PlainId          = EncodedPlainId
+    def Backtick         = rule( '`' )
+    def TripleTick       = rule( Backtick ~ Backtick ~ Backtick )
+    def BacktickedId: R0 = rule( Backtick ~ rep1(!Backtick ~ ANY) ~ Backtick )
+    def TickEmbedded     = rule( WS ~ TripleTick ~ Ident ~ WL ~ rep(!TripleTick ~ ANY) ~ opt(WL) ~ TripleTick )
 
     def Operator       = rule( !Keywords ~ rep1(OperatorChar) )
     def EncodedVarId   = rule( !Keywords ~ Lower ~ EncodedIdRest )
     def RawVarId       = rule( !Keywords ~ Lower ~ RawIdRest )
     def EncodedPlainId = rule( !Keywords ~ Upper ~ EncodedIdRest | EncodedVarId | Operator )
     def RawPlainId     = rule( !Keywords ~ Upper ~ RawIdRest | RawVarId | Operator )
-    def Id             = rule( !Keywords ~ EncodedPlainId | BacktickedId )
+    def Ident          = rule( !Keywords ~ EncodedPlainId | BacktickedId )
     def IdOrKeyword    = rule( PlainId | Keywords )
-    def BacktickedId   = rule( "`" ~ rep1(noneOf("`")) ~ "`" )
 
     private def EncodedIdRest  = rule( rep(rep("_") ~ rep1(!"_" ~ AlphaNum)) ~ UnderscorePart )
     private def RawIdRest      = rule( rep(rep("_") ~ rep1(!anyOf("_$") ~ AlphaNum)) ~ UnderscorePart )

@@ -6,8 +6,19 @@ import psp.parser.macros.Macros._
 import psp.std.{ path, Path }
 import psp.std.ansi._
 
-abstract class PspParser extends Parser with Basic with Identifiers with Literals {
+trait HasInputParser extends Parser {
   def input: ParserInput
+  def startRule: Rule0
+
+  def parseAllRule: Rule1[String] = rule( capture(startRule) ~ EOI )
+  def parseAll(): PspParsed[String] = parseAllRule.run() match {
+    case scala.util.Success(value)           => PspResult(input, Position(value.length, input), value)
+    case scala.util.Failure(err: ParseError) => PspError(input, err)
+    case scala.util.Failure(err)             => PspError(input, abort(s"Unknown error $err"))
+  }
+}
+
+abstract class PspParser extends HasInputParser with Basic with Identifiers with Literals {
 
   def prevN(n: Int): String = input.sliceString(cursor - n, cursor)
   def nextN(n: Int): String = input.sliceString(cursor, cursor + n)

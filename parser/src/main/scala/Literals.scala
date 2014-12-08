@@ -16,7 +16,7 @@ trait Literals {
 
   object Literals {
     import Basic._
-    import Identifiers.{ Id, IdOrKeyword }
+    import Identifiers.{ Ident, IdOrKeyword }
 
     private def optMinus    = rule( opt('-') )
     private def optExponent = rule( opt(ExponentPart) )
@@ -83,7 +83,7 @@ trait Literals {
           NumericLiteral
         | BooleanLiteral
         | CharacterLiteral
-        | Identifiers.Id ~ ( TripleInterp | "\"\\\"" | SingleInterp )
+        | Ident ~ ( TripleInterp | "\"\\\"" | SingleInterp )
         | TripleString
         | SingleString
         | SymbolLiteral

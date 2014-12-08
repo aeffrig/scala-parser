@@ -8,6 +8,9 @@ import psp.std.ansi._
 
 // These Function0 wrappers are horrific but seem necessary in current parboiled.
 class ScalaParser(val input: ParserInput) extends PspParser with Keywords with Xml {
+  def inputString = input.sliceString(0, input.length)
+  override def toString = s"ScalaParser($inputString)"
+
   /** Note how nested constructs are differentiated from top level ones.
    *  At the top level, val/var/def/type are disallowed.
    *  Within a template, package definitions are disallowed.
@@ -32,16 +35,18 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   val ParamTypeF0        = () => ParamType
   val PatternF0          = () => CasePattern
 
+  // def csv0(in: ParserInput): Rule0 = rule( new csv.CsvParser(in, ',').file ~> ((x: Any) => println(x)) )
+
   /** File-level entry point.
    */
-  def CompilationUnit: Rule1[String] = rule( capture(CompUnit) ~ EOI )
+  def startRule = CompilationUnit
 
   /** Big Picture rules.
    */
 
   def BlockExpr       = rule( InBlock.Expr )
   def CasePattern: R0 = rule( rep1sep(ValPattern, Pipe) )
-  def CompUnit        = rule( PackageStatSeq() ~ TopStatSeq() ~ WL )
+  def CompilationUnit = rule( PackageStatSeq() ~ TopStatSeq() ~ WL )
   def MemberDef       = rule( AnnotationsAndMods ~ Unmodified.Def )
   def SubExpr         = rule( WL ~ InExpr.Expr ) // i.e. expression outside block context
   def TemplateDef     = rule( AnnotationsAndMods ~ Unmodified.TemplateDef )
@@ -94,7 +99,7 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
 
   /** Identifier rules, including the identifier-like _, this, and super.
    */
-  def Id            = rule( WL ~ Identifiers.Id )
+  def Id            = rule( WL ~ Identifiers.Ident )
   def IdOrThis      = rule( Id | This )
   def IdOrUscore    = rule( Id | Uscore )
   def QualId        = rule( WL ~ rep1sep(Id, Dot) )
@@ -167,7 +172,12 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
   object InBlock extends WhitespaceRules(inBlock = true)
   object InExpr extends WhitespaceRules(inBlock = false)
 
+  def discard(x: Any): Unit = println(x)
+  // def EmbedExpr: R0         = rule( TripleTick ~ id ~ WS ~ (runSubParser(CsvParser(_).file) ~> discard) ~ TripleTick )
+
   abstract class WhitespaceRules(inBlock: Boolean) {
+    import Identifiers._
+
     def OptionalNewlineInBlock: R0 = if (inBlock) OneNLMax else MATCH
     def NoNewlineInBlock: R0       = if (inBlock) NotNL else MATCH
 
@@ -224,9 +234,14 @@ class ScalaParser(val input: ParserInput) extends PspParser with Keywords with X
     )
     def SimpleExpr: R0 = rule( SimpleExprStart ~ rep(SimpleExprPart) ~ opt(NoNewlineInBlock ~ Uscore) )
     def LambdaExpr     = rule( rep1(LambdaParams ~ RArrow) ~ ( Expr | ImpliedBlock ) )
+    // def InputLine = rule {
+    //   oneOrMore(runSubParser(new SubParser(_).intNumber)).separatedBy(',') ~ EOI ~> (_.sum)
+    // }
+    // def csvSubParser(in: ParserInput) = rule( runSubParser(csvF1) )
 
     def Expr: R0 = rule(
-        LambdaExpr
+        TickEmbedded
+      | LambdaExpr
       | IfExpr
       | WhileExpr
       | TryExpr

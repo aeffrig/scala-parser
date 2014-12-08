@@ -1,0 +1,3 @@
+object K{
+  <script> {{</script>
+}

@@ -1,5 +1,6 @@
 package psp
 package parser
+package tests
 
 import org.parboiled2.ParseError
 import psp.std.{ assert => _, _}
@@ -14,7 +15,7 @@ final case object Pass extends Result { def ansi = "ok".green.to_s }
 final case object Fail extends Result { def ansi = "failed".red.to_s }
 final case object Skip extends Result { def ansi = "skip".yellow.to_s }
 
-object SyntaxTest {
+object RealSourcesTest {
   import Predef.{ augmentString => _, wrapString => _, ArrowAssoc => _, _ }
 
   private def tryOpt[A](body: => Option[A]): Option[A] = Try(body) | None
@@ -51,6 +52,7 @@ object SyntaxTest {
     val isNeg       = segments("neg")
     val isSkip      = false
     lazy val parser = newScalaParser(input)
+    import parser._
 
     print(s"[%6s] $maxFileFmt  ".format(input.length, path_s))
 
@@ -65,18 +67,18 @@ object SyntaxTest {
 
     def checkScalac(err: ParseError): Result = {
       ScalacGlobal(f) match {
-        case ((true, res))  => finish(Fail, parser.failMessage(f, err))
+        case ((true, res))  => finish(Fail, failMessage(f, err))
         case ((false, res)) => finish(Pass, " (nobody can parse)")
       }
     }
 
     if (isSkip) finish(Skip, "")
-    else parser.CompilationUnit.run() match {
+    else parseAllRule.run() match {
       case Success(`input`) if !isNeg => finish(Pass, "")
       case Failure(_) if isNeg        => finish(Pass, "")
       case Success(s)                 => finish(Pass, " (more liberal parser)")
       case Failure(t: ParseError)     => checkScalac(t)
-      case Failure(t)                 => throw t
+      case Failure(t)                 => finish(Fail, s"Unexpected failure $t")
     }
   }
 

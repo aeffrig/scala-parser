@@ -1,26 +1,32 @@
-def buildBase      = baseDirectory in LocalRootProject
-def scratchSources = Def task (buildBase.value / "scratch" * "*.scala" get)
+import psp.libsbt.Deps
 
-def common = Seq(
-            resolvers +=  "snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
+val real = taskKey[Unit]("parse real sources discoverable through real/ subdirectory")
+
+def scratchSources = fromBase("scratch") map (_ * "*.scala" get)
+
+def common = standardSettings ++ Seq(
+            resolvers +=  Opts.resolver.sonatypeSnapshots,
+            resolvers +=  "paulp/maven" at "https://dl.bintray.com/paulp/maven",
          scalaVersion :=  "2.11.4",
-        scalacOptions +=  "-language:_",
   libraryDependencies ++= Seq(
-    "org.improving" %% "psp-std"   % "0.5.0",
-    "org.parboiled" %% "parboiled" % "2.1.0-SNAPSHOT"
+    "org.improving" %% "psp-std"   %     "0.5.0",
+    "org.parboiled" %% "parboiled" % "2.1.0-SNAPSHOT",
+    "org.improving" %% "expecty"   %    "1.0.0-RC4"    % "test"
   )
 )
 
-lazy val macros: Project = project settings (common: _*) settings (
-  libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided"
+lazy val macros: Project = project also common also (libraryDependencies += Deps.scalaReflect.value)
+
+lazy val parser: Project = project dependsOn macros also common also (
+                 name :=  "psp-parser",
+  libraryDependencies +=  Deps.scalaCompiler.value % "test",
+         key.initRepl <+= resourceDirectory in Compile mapValue (d => IO.read(d / "initialCommands.scala"))
 )
 
-lazy val parser: Project = project dependsOn macros settings (common: _*) settings (
-                 name := "psp-parser",
-                 test := (run in Test toTask "").value,
-  libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % "test"
+lazy val root = project.root aggregate (macros, parser) settings (
+        real  :=  (runMain in parser in Test toTask " psp.parser.tests.RealSourcesTest").value,
+        test  :=  (runMain in parser in Test toTask " psp.parser.tests.UnitTests").value,
+         run <<=  run in Compile in parser,
+watchSources <++= scratchSources,
+     console <<=  console in parser in Compile
 )
-
-  run in Test <<=  run in Test in parser
-          run <<=  run in Compile in parser
- watchSources <++= scratchSources

@@ -10,9 +10,9 @@ Originally a fork of [scala-parser](https://github.com/lihaoyi/scala-parser), wh
 
 It parses all the scala code I have yet attempted - about 40K source files. Pointers to counterexamples greatly appreciated. You can parse all files under a given path with
 
-    sbt 'test:run /path/to/files'
+    sbt 'run /path/to/files'
 
-A test will only fail if scalac successfully parses a file, but this parser does not.
+A source file is only considered a failure if scalac parses it successfully but this parse does not.
 
 Note that I'm quite intentionally parsing a significant superset of existing scala code. A great deal of logic disappears from the parser, and one can easily enforce a (now modularly defined) set of constraints after the fact, and with far superior error messages.
 
