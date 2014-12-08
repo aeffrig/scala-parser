@@ -23,13 +23,7 @@ object SyntaxTest {
   def maxFileFmt   = "%-" + maxFileLen + "s"
   def scalaSources = "."
 
-  def scalaPaths(root: Path): Seq[Path] = (
-    if (root hasExtension "scala") Seq(root)
-    else /*scala.util.Random.shuffle*/ (
-      Process(Seq("find", s"$root/", "-type", "f", "-name", "*.scala", "-print")).lines
-        filterNot (_ contains "/neg/") map (x => path(x))
-    )
-  )
+  def scalaPaths(root: Path): Seq[Path] = paths(root) filterNot (_.segments contains "neg")
 
   def dump(f: ParseError) {
     println(f.position)
@@ -67,15 +61,6 @@ object SyntaxTest {
       else println(str)
 
       res
-    }
-    def failMessage(error: ParseError): String = {
-      import error._, position._
-      def pos_s = "%s:%s:%s".format(f, line, column)
-      s"""|Expected: $formatExpectedAsString
-          |  at $pos_s
-          |
-          |${parser formatErrorLine error}
-          |""".stripMargin.trim
     }
 
     def checkScalac(err: ParseError): Result = {

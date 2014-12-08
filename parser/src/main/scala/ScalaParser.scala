@@ -3,6 +3,7 @@ package parser
 
 import org.parboiled2._
 import psp.parser.macros.Macros._
+import psp.std.{ path, Path }
 import psp.std.ansi._
 
 abstract class PspParser extends Parser with Basic with Identifiers with Literals {
@@ -10,6 +11,16 @@ abstract class PspParser extends Parser with Basic with Identifiers with Literal
 
   def prevN(n: Int): String = input.sliceString(cursor - n, cursor)
   def nextN(n: Int): String = input.sliceString(cursor, cursor + n)
+
+  def failMessage(path: Path, error: ParseError): String = {
+    import error._, position._
+    def pos_s = "%s:%s:%s".format(path, line, column)
+    s"""|Expected: $formatExpectedAsString
+        |  at $pos_s
+        |
+        |${this formatErrorLine error}
+        |""".stripMargin.trim
+  }
 
   /**
    * Parses all whitespace, excluding newlines. This is only

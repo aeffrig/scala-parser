@@ -1,6 +1,8 @@
 package psp
 
 import org.parboiled2._
+import psp.std.{ path, Path }
+import scala.sys.process.Process
 
 package object parser {
   val any2stringadd = null
@@ -10,6 +12,14 @@ package object parser {
   def doto[A](value: A)(f: A => Unit): A = { f(value) ; value }
 
   def abort(msg: String) = sys error msg
+
+  def paths(root: String): Seq[Path] = paths(path(root))
+  def paths(root: Path): Seq[Path]   = (
+    if (root.toFile.isFile)
+      Seq(root)
+    else
+      Process(Seq("find", s"$root/", "-type", "f", "-name", "*.scala", "-print")).lines map (x => path(x))
+  )
 
   /* Ugh. */
   def toCamelCase(s: String): String = {
