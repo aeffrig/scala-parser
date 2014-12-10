@@ -3,8 +3,9 @@ package parser
 
 import org.parboiled2._
 import psp.parser.macros.Macros._
-import psp.std.{ path, Path }
-import psp.std.ansi._
+import psp.std._, api._, ansi._
+// { path, Path }
+// import psp.std.ansi._
 
 // These Function0 wrappers are horrific but seem necessary in current parboiled.
 class ScalaParser(val input: ParserInput) extends PspParser with Keywords with Xml {

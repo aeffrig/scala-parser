@@ -3,8 +3,10 @@ package parser
 
 import org.parboiled2._
 import psp.parser.macros.Macros._
-import psp.std.{ path, Path }
-import psp.std.ansi._
+import psp.std._, api._, pio._, ansi._, StdShow._
+
+// import psp.std.{ path, Path }
+// import psp.std.ansi._
 
 trait HasInputParser extends Parser {
   def input: ParserInput
@@ -32,15 +34,16 @@ abstract class PspParser extends HasInputParser with Basic with Identifiers with
   override def formatErrorProblem(error: ParseError): String = "Error"
   override def formatErrorLine(error: ParseError): String = {
     import error._, position._
-    def line_s(i: Int): Option[String] = scala.util.Try(
+    def line_s(i: Int): Each[String] = scala.util.Try(
       "%4d  %s".format(i,
         if (i != line) input getLine i
-        else input getLine i splitAt column match { case (front, back) =>
+        else input getLine i splitAt Index(column) match { case Split(front, back) =>
           "" + (front dropRight 1) + errorCharMarkup(front.last) + back
         }
       )
-    ).toOption
-    (line - errorContextWidth) to (line + errorContextWidth) filter (_ >= 1) flatMap line_s mkString "\n"
+    ).toOption.seq
+
+    (line - errorContextWidth) to (line + errorContextWidth) filter (_ >= 1) flatMap line_s mk_s "\n"
   }
 
   def failMessage(path: Path, error: ParseError): String = {

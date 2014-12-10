@@ -2,8 +2,8 @@ package psp
 package parser
 package tests
 
-import psp.std.resourceString
-import scala.util.Try
+import psp.std._
+import scala.Console
 import org.expecty._
 
 /** We're not really using the power of expecty yet, but I expect it
@@ -11,6 +11,8 @@ import org.expecty._
  */
 object UnitTests {
   val expect = new Expecty()
+
+  def resourcesIn(root: String) = resourceNames(path(root)) map (name => (name, resourceString(s"$root/$name")))
 
   lazy val posTests = resourcesIn("tests/pos")
   lazy val negTests = resourcesIn("tests/neg")

@@ -5,10 +5,6 @@ import org.parboiled2._
 import psp.parser.macros.Macros._
 
 object CsvParser {
-  // private val `TEXTDATA-BASE` = CharPredicate.Printable -- '"'
-  // private val QTEXTDATA       = `TEXTDATA-BASE` ++ "\r\n"
-
-
   final case class CsvFile(records: Seq[Record])
   final case class Record(fields: Seq[String])
   final case class Error(msg: String)

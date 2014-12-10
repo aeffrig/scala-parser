@@ -2,7 +2,7 @@ package psp
 package parser
 
 import org.parboiled2._
-import psp.std._, api._
+import psp.std._, pio._
 
 object Main {
   def parse(path: Path) = {
@@ -17,5 +17,5 @@ object Main {
     }
   }
 
-  def main(args: Array[String]): Unit = args.toSeq flatMap (x => paths(x)) foreach parse
+  def main(args: Array[String]): Unit = args flatMap (x => paths(x)) foreach parse
 }

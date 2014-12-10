@@ -3,9 +3,9 @@ package parser
 
 import org.parboiled2._
 import CharPredicate.{ HexDigit, AlphaNum, Digit19 }
+import psp.std._, api._
 import psp.parser.macros.Macros._
-import java.lang.Integer.parseInt
-import java.lang.{ Character => C }, C.UnicodeBlock
+// import java.lang.{ Character => C }, C.UnicodeBlock
 
 trait Basic {
   self: PspParser =>

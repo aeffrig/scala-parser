@@ -1,6 +1,7 @@
 package psp
 package parser
 
+import psp.std._
 import scala.tools.nsc._
 import scala.reflect.io.AbstractFile
 import scala.reflect.internal.util._

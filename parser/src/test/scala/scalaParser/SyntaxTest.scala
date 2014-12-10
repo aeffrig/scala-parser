@@ -3,11 +3,7 @@ package parser
 package tests
 
 import org.parboiled2.ParseError
-import psp.std.{ assert => _, _}
-import psp.std.api._
-import scala.util.{Failure, Success}
-import psp.std.ansi._
-import scala.sys.process.Process
+import psp.std._, api._, pio._, ansi._, StdEq._
 import java.nio.file.NoSuchFileException
 
 sealed trait Result { def ansi: String }
@@ -16,7 +12,7 @@ final case object Fail extends Result { def ansi = "failed".red.to_s }
 final case object Skip extends Result { def ansi = "skip".yellow.to_s }
 
 object RealSourcesTest {
-  import Predef.{ augmentString => _, wrapString => _, ArrowAssoc => _, _ }
+  // import Predef.{ augmentString => _, wrapString => _, ArrowAssoc => _, _ }
 
   private def tryOpt[A](body: => Option[A]): Option[A] = Try(body) | None
 
@@ -24,7 +20,7 @@ object RealSourcesTest {
   def maxFileFmt   = "%-" + maxFileLen + "s"
   def scalaSources = "."
 
-  def scalaPaths(root: Path): Seq[Path] = paths(root) filterNot (_.segments contains path("neg"))
+  def scalaPaths(root: Path) = paths(root) filterNot (_.segments contains path("neg"))
 
   def dump(f: ParseError) {
     println(f.position)
@@ -41,7 +37,7 @@ object RealSourcesTest {
   def checkPath(root: Path, f: Path): Result = {
     val input    = try f.slurp() catch { case _: NoSuchFileException => return Skip }
     val fs       = f.toString
-    val segments = (fs splitChar '/').toSet
+    val segments = (fs splitChar '/').toScalaSet
     val path_s = {
       try fs stripPrefix root.toString stripPrefix "/" match {
         case s if s.length <= maxFileLen => s
@@ -54,10 +50,10 @@ object RealSourcesTest {
     lazy val parser = newScalaParser(input)
     import parser._
 
-    print(s"[%6s] $maxFileFmt  ".format(input.length, path_s))
+    Console.putOut(s"[%6s] $maxFileFmt  ".format(input.length, path_s))
 
     def finish(res: Result, str: String): Result = {
-      print(res.ansi)
+      Console.putOut(res.ansi)
       if (str == "") println("")
       else if (res == Fail) println("\n" + str + "\n")
       else println(str)
@@ -83,12 +79,12 @@ object RealSourcesTest {
   }
 
   def main(args0: Array[String]): Unit = {
-    val args    = ( if (args0.isEmpty) Seq(".") else args0.toSeq ) map (x => path(x))
-    val results = args flatMap (root => scalaPaths(root) map (p => p -> checkPath(root, p)))
-    val pass    = results filter (_._2 == Pass)
-    val skip    = results filter (_._2 == Skip)
-    val fail    = results filter (_._2 == Fail)
-    val total   = skip.length + pass.length + fail.length
+    val args: Direct[Path] = if (args0.isEmpty) direct(path(".")) else args0 map (x => path(x))
+    val results            = args flatMap (root => scalaPaths(root) map (p => p -> checkPath(root, p)))
+    val pass               = results filter (_._2 == Pass) force
+    val skip               = results filter (_._2 == Skip) force
+    val fail               = results filter (_._2 == Fail) force
+    val total              = skip.length + pass.length + fail.length
 
     println(s"%s tests: %s pass, %s fail, %s skipped".format(total, pass.length, fail.length, skip.length))
 
@@ -96,7 +92,7 @@ object RealSourcesTest {
       println("\nSkipped:\n")
       skip map (_._1) foreach println
       println("\nFailures:\n")
-      val paths = fail map (_._1)
+      val paths = fail.map(_._1).force
       paths foreach println
       runtimeException("There were (%s) test failures.".format(paths.length))
     }
