@@ -8,7 +8,7 @@ package object parser {
   type HList = shapeless.HList
 
   def paths(root: String): Each[Path] = paths(path(root))
-  def paths(root: Path): Each[Path]   = root.deepFiles filter (_ hasExtension "scala")
+  def paths(root: Path): Each[Path]   = root.entries flatMap (_.deepFiles) filter (_ hasExtension "scala")
 
   implicit def pathToParserInput(p: Path): ParserInput  = p.slurp()
   implicit def fileToParserInput(f: jFile): ParserInput = f.toPath.slurp()

@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+#
+
+uname="$(uname -a)"
+
+runOnTravis () {
+  cat <<EOM
+------------------------------------------------------------
+-------------------- End Travis Prelude --------------------
+------------------------------------------------------------
+EOM
+}
+
+runTests () {
+  sbt test || exit 1
+  echo "[info] $(date) - finished sbt unit tests"
+  echo "[info] $(date) - downloading test sources"
+  $(dirname $0)/get-scala-sources
+  echo "[info] $(date) - testing real sources"
+  sbt real || exit 1
+  echo "[info] $(date) - finished tests"
+}
+
+stripTerminalEscapeCodes () {
+  sed -r 's/\x1B\[[0-9;]*[JKmsu]//g'
+}
+
+mkRegex () { ( IFS="|" && echo "$*" ); }
+
+filterOutput() {
+  while read line; do
+    if ! [[ $(echo $line | stripTerminalEscapeCodes) =~ $excludeRegex ]] ; then
+      echo "$line"
+    fi
+  done
+}
+main() {
+  # sbt output filter
+  local excludeRegex=$(mkRegex \
+    '\[info\] (Resolving|Loading|Updating|Packaging|Done updating)' \
+    '[.]bintray[/][.]credentials' \
+    're[-]run with [-]unchecked for details' \
+    'ignoring option MaxPermSize' \
+    'one warning found'
+  )
+  echo "[info] $(date) - starting sbt test"
+  (set -o pipefail && runTests |& filterOutput)
+}
+
+echo "[info] $uname"
+[[ $uname = *testing-worker-* ]] && runOnTravis  # only download the cache on travis
+
+main "$@"

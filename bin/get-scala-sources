@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#
+
+run () { echo "$@" && "$@"; }
+
+name="scala-sources.tgz"
+file="https://www.dropbox.com/s/ukbh4twr7p463pe/$name"
+mkdir -p real
+run curl -s -L -o $name "$file" && run tar xf $name -C real
+
+exit 0
