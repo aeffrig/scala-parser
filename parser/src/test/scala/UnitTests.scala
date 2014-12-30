@@ -45,9 +45,13 @@ object UnitTests {
     fprint(s"${negTests.size} negative tests: ")
     for ((name, code) <- negTests) {
       val parser = newScalaParser(code)
+      val result = parser.parseAll()
       expect {
-        !parser.parseAll().isSuccess
+        !result.isSuccess
       }
+      if (isDebug)
+        println(result)
+
       fprint(".")
     }
     fprint("\n")

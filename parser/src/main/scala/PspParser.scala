@@ -25,37 +25,6 @@ abstract class PspParser extends HasInputParser with Basic with Identifiers with
   def prevN(n: Int): String = input.sliceString(cursor - n, cursor)
   def nextN(n: Int): String = input.sliceString(cursor, cursor + n)
 
-  def errorContextWidth: Int            = 1
-  def errorCharMarkup(ch: Char): String = {
-    import scala.Console._
-    RED + BOLD + REVERSED + ch + RESET
-  }
-
-  override def formatErrorProblem(error: ParseError): String = "Error"
-  override def formatErrorLine(error: ParseError): String = {
-    import error._, position._
-    def line_s(i: Int): Each[String] = scala.util.Try(
-      "%4d  %s".format(i,
-        if (i != line) input getLine i
-        else input getLine i splitAt Index(column) match { case Split(front, back) =>
-          "" + (front dropRight 1) + errorCharMarkup(front.last) + back
-        }
-      )
-    ).toOption.seq
-
-    (line - errorContextWidth) to (line + errorContextWidth) filter (_ >= 1) flatMap line_s mk_s "\n"
-  }
-
-  def failMessage(path: Path, error: ParseError): String = {
-    import error._, position._
-    def pos_s = "%s:%s:%s".format(path, line, column)
-    s"""|Expected: $formatExpectedAsString
-        |  at $pos_s
-        |
-        |${this formatErrorLine error}
-        |""".stripMargin.trim
-  }
-
   /**
    * Parses all whitespace, excluding newlines. This is only
    * really useful in e.g. {} blocks, where we want to avoid

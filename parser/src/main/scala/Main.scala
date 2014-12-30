@@ -12,7 +12,7 @@ object Main {
 
     CompilationUnit.run() match {
       case scala.util.Success(_)               => println(s"[ok] $path")
-      case scala.util.Failure(err: ParseError) => println("[fail] " + failMessage(path, err))
+      case scala.util.Failure(err: ParseError) => println("[fail] " + failMessage(path, err, input))
       case scala.util.Failure(e)               => println("Unexpected error during parsing run: " + e)
     }
   }
